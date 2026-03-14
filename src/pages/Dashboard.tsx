@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { TrendingUp, AlertCircle, Clock, Truck, Code2, Plus, FilePlus2, ArrowRightLeft } from 'lucide-react'
+import { TrendingUp, AlertCircle, Clock, Truck, Code2, Plus, FilePlus2, ArrowRightLeft, Loader2 } from 'lucide-react'
 import {
   LineChart,
   Line,
@@ -24,7 +24,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table'
-import { useInventoryStore } from '@/stores/inventoryStore'
+import { useInventory } from '@/hooks/useInventory'
+import { Product } from '@/types/inventory'
 
 const chartData = [
   { month: 'Jan', inventory: 4000, movement: 2400, orders: 2400 },
@@ -34,19 +35,6 @@ const chartData = [
   { month: 'May', inventory: 1890, movement: 4800, orders: 2181 },
   { month: 'Jun', inventory: 2390, movement: 3800, orders: 2500 },
   { month: 'Jul', inventory: 3490, movement: 4300, orders: 2100 },
-]
-
-const lowStockData = [
-  { id: '1', name: 'USB-C Cable', sku: 'USB-C-01', current: 8, recommended: 50 },
-  { id: '2', name: 'HDMI Cable', sku: 'HDMI-01', current: 12, recommended: 30 },
-  { id: '3', name: 'Power Adapter', sku: 'PSU-01', current: 5, recommended: 25 },
-]
-
-const recentOperations = [
-  { id: '1', type: 'Receipt', reference: 'RCP-001', status: 'pending', items: 50, date: '2024-03-14' },
-  { id: '2', type: 'Delivery', reference: 'ORD-001', status: 'in-progress', items: 5, date: '2024-03-13' },
-  { id: '3', type: 'Transfer', reference: 'TRF-001', status: 'completed', items: 20, date: '2024-03-12' },
-  { id: '4', type: 'Adjustment', reference: 'ADJ-001', status: 'approved', items: 3, date: '2024-03-11' },
 ]
 
 const KPICard = ({
@@ -133,7 +121,7 @@ const KPICard = ({
 )
 
 export default function Dashboard() {
-  const { products, receipts, warehouses } = useInventoryStore()
+  const { products, warehouses, ledger, loading, error, refreshInventory } = useInventory()
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
@@ -141,6 +129,22 @@ export default function Dashboard() {
     const timer = setTimeout(() => setToast(null), 2200)
     return () => clearTimeout(timer)
   }, [toast])
+
+  const getProductStatus = (product: Product) => {
+    if (product.stock === 0) return 'out-of-stock'
+    if (product.stock <= product.reorder_level) return 'low-stock'
+    return 'in-stock'
+  }
+
+  const lowStockProducts = products.filter(p => getProductStatus(p) === 'low-stock' || getProductStatus(p) === 'out-of-stock')
+  const recentOperations = ledger.slice(0, 4).map((entry, idx) => ({
+    id: entry.id || idx.toString(),
+    type: entry.operation_type.charAt(0).toUpperCase() + entry.operation_type.slice(1),
+    reference: entry.reference_id || 'N/A',
+    status: entry.quantity_delta > 0 ? 'completed' : 'completed',
+    items: Math.abs(entry.quantity_delta),
+    date: entry.created_at ? new Date(entry.created_at).toLocaleDateString() : 'N/A',
+  }))
 
   const stats = [
     {
@@ -152,16 +156,16 @@ export default function Dashboard() {
     },
     {
       title: 'Low Stock Items',
-      value: products.filter((p) => p.status === 'low-stock' || p.status === 'out-of-stock').length,
+      value: lowStockProducts.length,
       icon: <AlertCircle className="h-5 w-5" />,
       description: 'Requires attention',
       delay: 0.2,
     },
     {
-      title: 'Pending Receipts',
-      value: receipts.filter((r) => r.status === 'pending').length,
+      title: 'Recent Operations',
+      value: ledger.length,
       icon: <Clock className="h-5 w-5" />,
-      description: 'Awaiting verification',
+      description: 'Total logged',
       delay: 0.3,
     },
     {
@@ -172,6 +176,25 @@ export default function Dashboard() {
       delay: 0.4,
     },
   ]
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <p className="text-destructive">Error loading dashboard data: {error}</p>
+        <Button onClick={refreshInventory}>Retry</Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -331,25 +354,35 @@ export default function Dashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Low Stock Alerts</CardTitle>
-              <CardDescription>{lowStockData.length} items below reorder level</CardDescription>
+              <CardDescription>{lowStockProducts.length} items below reorder level</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {lowStockData.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div>
-                      <div className="font-medium text-sm">{item.name}</div>
-                      <div className="text-xs text-muted-foreground">{item.sku}</div>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="destructive">{item.current} / {item.recommended}</Badge>
-                    </div>
+              {lowStockProducts.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  All products have sufficient stock
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    {lowStockProducts.slice(0, 3).map((item) => (
+                      <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <div>
+                          <div className="font-medium text-sm">{item.name}</div>
+                          <div className="text-xs text-muted-foreground">{item.sku}</div>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant="destructive">{item.stock} / {item.reorder_level}</Badge>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <Button className="w-full mt-4" variant="outline">
-                View All Alerts
-              </Button>
+                  {lowStockProducts.length > 3 && (
+                    <Button className="w-full mt-4" variant="outline">
+                      View All Alerts ({lowStockProducts.length})
+                    </Button>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -366,30 +399,32 @@ export default function Dashboard() {
               <CardDescription>Latest stock movements</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {recentOperations.map((op) => (
-                  <div key={op.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div>
-                      <div className="font-medium text-sm">{op.reference}</div>
-                      <div className="text-xs text-muted-foreground">{op.type} • {op.items} items</div>
-                    </div>
-                    <Badge
-                      variant={
-                        op.status === 'completed'
-                          ? 'success'
-                          : op.status === 'pending'
-                            ? 'warning'
-                            : 'info'
-                      }
-                    >
-                      {op.status}
-                    </Badge>
+              {recentOperations.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No operations yet
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    {recentOperations.map((op) => (
+                      <div key={op.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                        <div>
+                          <div className="font-medium text-sm">{op.reference}</div>
+                          <div className="text-xs text-muted-foreground">{op.type} • {op.items} units</div>
+                        </div>
+                        <Badge variant="success">
+                          {op.status}
+                        </Badge>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <Button className="w-full mt-4" variant="outline">
-                View All Operations
-              </Button>
+                  {ledger.length > 4 && (
+                    <Button className="w-full mt-4" variant="outline">
+                      View All Operations ({ledger.length})
+                    </Button>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </motion.div>

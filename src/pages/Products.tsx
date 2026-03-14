@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Edit, Trash2, Search, Filter } from 'lucide-react'
+import { Plus, Edit, Trash2, Search, Filter, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
@@ -12,10 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog'
-import { useInventoryStore, Product } from '@/stores/inventoryStore'
+import { useProducts } from '@/hooks/useProducts'
+import { Product } from '@/types/inventory'
 
 export default function Products() {
-  const { products, addProduct, updateProduct, deleteProduct } = useInventoryStore()
+  const { products, loading, error, addProduct, fetchProducts } = useProducts()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -26,13 +27,19 @@ export default function Products() {
     sku: '',
     category: '',
     stock: 0,
-    warehouse: '',
+    warehouse_id: '',
     reorderLevel: 0,
     price: 0,
   })
 
   const categories = ['Electronics', 'Accessories', 'Peripherals', 'Software']
   const warehouses = ['Main Warehouse', 'Secondary Warehouse']
+
+  const getProductStatus = (product: Product) => {
+    if (product.stock === 0) return 'out-of-stock'
+    if (product.stock <= product.reorder_level) return 'low-stock'
+    return 'in-stock'
+  }
 
   const filteredProducts = products.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase())
@@ -59,7 +66,7 @@ export default function Products() {
       sku: '',
       category: '',
       stock: 0,
-      warehouse: '',
+      warehouse_id: '',
       reorderLevel: 0,
       price: 0,
     })
@@ -71,37 +78,64 @@ export default function Products() {
     setFormData({
       name: product.name,
       sku: product.sku,
-      category: product.category,
+      category: product.category || '',
       stock: product.stock,
-      warehouse: product.warehouse,
-      reorderLevel: product.reorderLevel,
+      warehouse_id: product.warehouse_id || '',
+      reorderLevel: product.reorder_level,
       price: product.price,
     })
     setIsEditOpen(true)
   }
 
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
     if (!formData.name || !formData.sku || !formData.category) return
 
     if (editingProduct) {
-      updateProduct(editingProduct.id, formData)
+      // TODO: Implement update product service
+      alert('Update functionality coming soon')
       setIsEditOpen(false)
     } else {
-      const newProduct: Product = {
-        id: Date.now().toString(),
-        ...formData,
-        status: formData.stock === 0 ? 'out-of-stock' : formData.stock <= formData.reorderLevel ? 'low-stock' : 'in-stock',
+      try {
+        await addProduct({
+          name: formData.name,
+          sku: formData.sku,
+          category: formData.category,
+          stock: formData.stock,
+          warehouse_id: formData.warehouse_id || null,
+          reorder_level: formData.reorderLevel,
+          price: formData.price,
+        })
+        setIsAddOpen(false)
+        fetchProducts()
+      } catch (err) {
+        alert('Failed to add product: ' + (err as Error).message)
       }
-      addProduct(newProduct)
-      setIsAddOpen(false)
     }
     setEditingProduct(null)
   }
 
   const handleDeleteProduct = (id: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
-      deleteProduct(id)
-    }
+    // TODO: Implement delete product service
+    alert('Delete functionality coming soon')
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <p className="text-destructive">Error loading products: {error}</p>
+        <Button onClick={fetchProducts}>Retry</Button>
+      </div>
+    )
   }
 
   return (
@@ -134,8 +168,8 @@ export default function Products() {
       >
         {[
           { label: 'Total Products', value: products.length },
-          { label: 'In Stock', value: products.filter(p => p.status === 'in-stock').length },
-          { label: 'Low Stock', value: products.filter(p => p.status === 'low-stock').length },
+          { label: 'In Stock', value: products.filter(p => getProductStatus(p) === 'in-stock').length },
+          { label: 'Low Stock', value: products.filter(p => getProductStatus(p) === 'low-stock').length },
         ].map((stat, i) => (
           <motion.div
             key={i}
@@ -258,11 +292,11 @@ export default function Products() {
                           <span className="font-bold text-foreground">{product.stock}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm text-foreground/70">{product.warehouse}</span>
+                          <span className="text-sm text-foreground/70">{product.warehouse_id || 'N/A'}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <Badge variant={getStatusColor(product.status)}>
-                            {product.status}
+                          <Badge variant={getStatusColor(getProductStatus(product))}>
+                            {getProductStatus(product)}
                           </Badge>
                         </td>
                         <td className="px-6 py-4 text-right font-semibold">
@@ -371,8 +405,8 @@ export default function Products() {
                       Warehouse
                     </label>
                     <select
-                      value={formData.warehouse}
-                      onChange={(e) => setFormData({ ...formData, warehouse: e.target.value })}
+                      value={formData.warehouse_id}
+                      onChange={(e) => setFormData({ ...formData, warehouse_id: e.target.value })}
                       aria-label="Select warehouse"
                       title="Select warehouse"
                       className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm"
