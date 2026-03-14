@@ -31,6 +31,7 @@ export default function DeliveryOrders() {
   const { products, submitDelivery, loading: inventoryLoading } = useInventory()
   const [deliveries, setDeliveries] = useState<Delivery[]>([])
   const [loadingDeliveries, setLoadingDeliveries] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null)
@@ -58,6 +59,7 @@ export default function DeliveryOrders() {
       setDeliveries(data || [])
     } catch (err) {
       console.error('Failed to fetch deliveries:', err)
+      setFetchError((err as Error).message)
     } finally {
       setLoadingDeliveries(false)
     }
@@ -113,7 +115,14 @@ export default function DeliveryOrders() {
     )
   }
 
-
+  if (fetchError && deliveries.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <p className="text-destructive">Error loading deliveries: {fetchError}</p>
+        <Button onClick={fetchDeliveries}>Retry</Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -177,7 +186,7 @@ export default function DeliveryOrders() {
                         <TableCell className="font-medium">{delivery.id.slice(0, 8)}...</TableCell>
                         <TableCell>{delivery.customer || 'N/A'}</TableCell>
                         <TableCell>{delivery.reference || 'N/A'}</TableCell>
-                        <TableCell className="text-xs">{delivery.product_id.slice(0, 8)}...</TableCell>
+                        <TableCell className="text-xs">{products.find(p => p.id === delivery.product_id)?.name || delivery.product_id.slice(0, 8) + '...'}</TableCell>
                         <TableCell className="text-right font-semibold">{delivery.quantity}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {delivery.created_at ? new Date(delivery.created_at).toLocaleDateString() : 'N/A'}

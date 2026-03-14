@@ -28,8 +28,27 @@ export default function Login() {
   const [otpSent, setOtpSent] = useState(false)
   const [error, setError] = useState('')
   const [touched, setTouched] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [otpSuccessMsg, setOtpSuccessMsg] = useState('')
 
   const emailValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email), [email])
+
+  // Redirect immediately if already authenticated
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        const from = (location.state as any)?.from?.pathname || '/dashboard'
+        navigate(from, { replace: true })
+      }
+    })
+  }, [navigate, location])
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [resendCooldown])
 
   // Listen for auth state changes
   useEffect(() => {
@@ -92,8 +111,32 @@ export default function Login() {
 
       setOtpSent(true)
       setError('')
+      setOtpSuccessMsg(`OTP sent to ${email}`)
+      setResendCooldown(30)
     } catch (error) {
       console.error('Error sending OTP:', error)
+      setError((error as Error).message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const resendOTP = async () => {
+    if (resendCooldown > 0 || isLoading) return
+    setError('')
+    setOtpSuccessMsg('')
+    setIsLoading(true)
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true },
+      })
+      if (error) throw error
+      setOtpSuccessMsg(`New OTP sent to ${email}`)
+      setResendCooldown(30)
+      setOtp('')
+    } catch (error) {
+      console.error('Error resending OTP:', error)
       setError((error as Error).message)
     } finally {
       setIsLoading(false)
@@ -307,6 +350,16 @@ export default function Login() {
               </form>
             ) : (
               <form id="otp-form" onSubmit={verifyOTP} className="space-y-4">
+                {otpSuccessMsg && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3"
+                  >
+                    <p className="text-sm text-emerald-400 text-center">{otpSuccessMsg}</p>
+                  </motion.div>
+                )}
+
                 <div className="relative">
                   <input
                     ref={otpInputRef}
@@ -319,6 +372,7 @@ export default function Login() {
                     placeholder="000000"
                     maxLength={6}
                     disabled={isLoading}
+                    autoComplete="one-time-code"
                     className="h-14 w-full rounded-xl border border-white/20 bg-white/5 text-center text-2xl font-mono tracking-widest text-white outline-none transition-all focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/30 disabled:opacity-50"
                   />
                   <p className="mt-2 text-center text-xs text-slate-300">
@@ -349,17 +403,29 @@ export default function Login() {
                   )}
                 </motion.button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOtpSent(false)
-                    setOtp('')
-                    setError('')
-                  }}
-                  className="w-full text-center text-sm text-cyan-200 hover:text-cyan-100 transition"
-                >
-                  Use a different email
-                </button>
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpSent(false)
+                      setOtp('')
+                      setError('')
+                      setOtpSuccessMsg('')
+                      setResendCooldown(0)
+                    }}
+                    className="text-sm text-cyan-200 hover:text-cyan-100 transition"
+                  >
+                    Change email
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resendOTP}
+                    disabled={resendCooldown > 0 || isLoading}
+                    className="text-sm text-cyan-200 hover:text-cyan-100 transition disabled:text-slate-500 disabled:cursor-not-allowed"
+                  >
+                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
+                  </button>
+                </div>
               </form>
             )}
 

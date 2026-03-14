@@ -27,10 +27,8 @@ export async function createProduct(product: CreateProductInput): Promise<Produc
     name: product.name,
     sku: product.sku,
     category: product.category ?? null,
-    stock: product.stock ?? 0,
     reorder_level: product.reorder_level ?? 0,
     price: product.price ?? 0,
-    warehouse_id: product.warehouse_id ?? null,
   }
 
   const { data, error } = await supabase

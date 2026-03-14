@@ -37,15 +37,23 @@ import { Select } from '@/components/ui/Select'
 import { useInventory } from '@/hooks/useInventory'
 import { Product } from '@/types/inventory'
 
-const chartData = [
-  { month: 'Jan', inventory: 4000, movement: 2400, orders: 2400 },
-  { month: 'Feb', inventory: 3000, movement: 1398, orders: 2210 },
-  { month: 'Mar', inventory: 2000, movement: 9800, orders: 2290 },
-  { month: 'Apr', inventory: 2780, movement: 3908, orders: 2000 },
-  { month: 'May', inventory: 1890, movement: 4800, orders: 2181 },
-  { month: 'Jun', inventory: 2390, movement: 3800, orders: 2500 },
-  { month: 'Jul', inventory: 3490, movement: 4300, orders: 2100 },
-]
+// Derive chart data from real ledger entries (group by month)
+function buildChartData(ledger: { created_at?: string; quantity_delta: number }[]) {
+  const months: Record<string, { receipts: number; deliveries: number }> = {}
+  for (const entry of ledger) {
+    if (!entry.created_at) continue
+    const d = new Date(entry.created_at)
+    const key = d.toLocaleString('default', { month: 'short', year: '2-digit' })
+    if (!months[key]) months[key] = { receipts: 0, deliveries: 0 }
+    if (entry.quantity_delta > 0) months[key].receipts += entry.quantity_delta
+    else months[key].deliveries += Math.abs(entry.quantity_delta)
+  }
+  return Object.entries(months).map(([month, val]) => ({
+    month,
+    inbound: val.receipts,
+    outbound: val.deliveries,
+  }))
+}
 
 const KPICard = ({
   title,
@@ -132,6 +140,7 @@ const KPICard = ({
 
 export default function Dashboard() {
   const { products, warehouses, ledger, loading, error, refreshInventory, submitReceipt, submitTransfer } = useInventory()
+  const chartData = buildChartData(ledger)
   const [toast, setToast] = useState<string | null>(null)
   
   // Dialog states
@@ -186,8 +195,6 @@ export default function Dashboard() {
         category: productForm.category,
         price: productForm.price,
         reorder_level: productForm.reorder_level,
-        stock: 0,
-        warehouse_id: null,
       })
       
       setIsAddProductOpen(false)
@@ -276,7 +283,7 @@ export default function Dashboard() {
       title: 'Total Products',
       value: products.length,
       icon: <Code2 className="h-5 w-5" />,
-      trend: 12,
+      description: `${products.reduce((s, p) => s + p.stock, 0)} total units`,
       delay: 0.1,
     },
     {
@@ -297,7 +304,7 @@ export default function Dashboard() {
       title: 'Active Warehouses',
       value: warehouses.length,
       icon: <Truck className="h-5 w-5" />,
-      trend: 2,
+      description: `${warehouses.length} location${warehouses.length !== 1 ? 's' : ''}`,
       delay: 0.4,
     },
   ]
@@ -399,8 +406,8 @@ export default function Dashboard() {
         >
           <Card>
             <CardHeader>
-              <CardTitle>Inventory Trend</CardTitle>
-              <CardDescription>Monthly inventory levels</CardDescription>
+              <CardTitle>Inbound Trend</CardTitle>
+              <CardDescription>Monthly inbound quantities</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -423,7 +430,7 @@ export default function Dashboard() {
                   />
                   <Area
                     type="monotone"
-                    dataKey="inventory"
+                    dataKey="inbound"
                     stroke="hsl(var(--primary))"
                     fillOpacity={1}
                     fill="url(#colorInventory)"
@@ -443,7 +450,7 @@ export default function Dashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Movement Activity</CardTitle>
-              <CardDescription>Stock movements vs orders</CardDescription>
+              <CardDescription>Inbound vs outbound movements</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -459,8 +466,8 @@ export default function Dashboard() {
                     }}
                   />
                   <Legend />
-                  <Line type="monotone" dataKey="movement" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="orders" stroke="hsl(var(--accent))" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="inbound" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="outbound" stroke="hsl(var(--accent))" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>

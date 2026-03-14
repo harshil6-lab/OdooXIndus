@@ -13,10 +13,12 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog'
 import { useProducts } from '@/hooks/useProducts'
+import { useInventory } from '@/hooks/useInventory'
 import { Product } from '@/types/inventory'
 
 export default function Products() {
   const { products, loading, error, addProduct, editProduct, removeProduct, fetchProducts } = useProducts()
+  const { warehouses } = useInventory()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -33,7 +35,6 @@ export default function Products() {
   })
 
   const categories = ['Electronics', 'Accessories', 'Peripherals', 'Software']
-  const warehouses = ['Main Warehouse', 'Secondary Warehouse']
 
   const getProductStatus = (product: Product) => {
     if (product.stock === 0) return 'out-of-stock'
@@ -110,8 +111,6 @@ export default function Products() {
           name: formData.name,
           sku: formData.sku,
           category: formData.category,
-          stock: formData.stock,
-          warehouse_id: formData.warehouse_id || null,
           reorder_level: formData.reorderLevel,
           price: formData.price,
         })
@@ -309,7 +308,7 @@ export default function Products() {
                           <span className="font-bold text-foreground">{product.stock}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm text-foreground/70">{product.warehouse_id || 'N/A'}</span>
+                          <span className="text-sm text-foreground/70">{warehouses.find(w => w.id === product.warehouse_id)?.name || 'N/A'}</span>
                         </td>
                         <td className="px-6 py-4">
                           <Badge variant={getStatusColor(getProductStatus(product))}>
@@ -430,8 +429,8 @@ export default function Products() {
                     >
                       <option value="">Select warehouse</option>
                       {warehouses.map((wh) => (
-                        <option key={wh} value={wh}>
-                          {wh}
+                        <option key={wh.id} value={wh.id}>
+                          {wh.name}
                         </option>
                       ))}
                     </select>
