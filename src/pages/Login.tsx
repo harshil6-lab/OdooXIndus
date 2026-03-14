@@ -6,17 +6,6 @@ import { Button } from '@/components/ui/Button'
 import { supabase } from '@/services/supabaseClient'
 import { getUserProfile, createUserProfile } from '@/services/profileService'
 
-function GoogleMark() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.2-1.4 3.4-5.5 3.4-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C17 2.8 14.8 2 12 2 6.5 2 2 6.5 2 12s4.5 10 10 10c5.8 0 9.7-4.1 9.7-9.8 0-.7-.1-1.3-.2-2H12z" />
-      <path fill="#4285F4" d="M22 12.2c0-.7-.1-1.3-.2-2H12v3.9h5.5c-.3 1.4-1.2 2.6-2.4 3.4l3.7 2.9c2.2-2.1 3.2-5 3.2-8.2z" />
-      <path fill="#FBBC05" d="M6 14c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2L2.2 7.1C1.4 8.6 1 10.2 1 12s.4 3.4 1.2 4.9L6 14z" />
-      <path fill="#34A853" d="M12 22c2.8 0 5.1-.9 6.9-2.5l-3.7-2.9c-1 .7-2.3 1.2-3.8 1.2-2.9 0-5.4-2-6.2-4.8l-3.8 3C3.2 19.7 7.2 22 12 22z" />
-    </svg>
-  )
-}
-
 export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -193,25 +182,6 @@ export default function Login() {
     event.preventDefault()
     const pastedData = event.clipboardData.getData('text')
     handleOtpChange(pastedData)
-  }
-
-  const signInWithGoogle = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
-      })
-
-      if (error) {
-        console.error('Google login error:', error)
-        alert('Google login failed: ' + error.message)
-      }
-    } catch (error) {
-      console.error('Google login error:', error)
-      alert('Google login failed: ' + (error as Error).message)
-    }
   }
 
   return (
@@ -428,25 +398,6 @@ export default function Login() {
                 </div>
               </form>
             )}
-
-            <div className="my-5 flex items-center gap-3">
-              <div className="h-px flex-1 bg-white/10" />
-              <span className="text-xs text-slate-400">or continue with</span>
-              <div className="h-px flex-1 bg-white/10" />
-            </div>
-
-            <div className="space-y-3">
-              <motion.button
-                whileHover={{ y: -1 }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                onClick={signInWithGoogle}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 text-sm text-white transition hover:bg-white/10"
-              >
-                <GoogleMark />
-                Continue with Google
-              </motion.button>
-            </div>
 
             <p className="mt-6 text-center text-sm text-slate-300">
               Do not have an account?{' '}

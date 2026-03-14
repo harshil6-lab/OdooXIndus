@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
@@ -101,13 +101,14 @@ const navigationItems: NavItem[] = [
 ]
 
 export function Sidebar() {
+  const navigate = useNavigate()
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['operations']))
   const { sidebarOpen, setSidebarOpen } = useAppStore()
   const { profile, user } = useAuthUser()
   const location = useLocation()
   const desktopWidth = sidebarOpen ? 260 : 72
-  const displayName = profile?.full_name || user?.email || 'Account'
-  const displayRole = profile?.role || 'User'
+  const displayName = profile?.full_name || 'Account'
+  const displayEmail = user?.email || 'No email'
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) => {
@@ -269,12 +270,15 @@ export function Sidebar() {
 
         {/* Footer */}
         <div className="border-t border-slate-800 p-3">
-          <button className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-slate-800">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-300 to-blue-500" />
+          <button 
+            onClick={() => navigate('/profile')} 
+            className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-slate-800"
+          >
+            <div className="h-8 w-8 rounded-full flex-shrink-0 bg-gradient-to-br from-cyan-300 to-blue-500" />
             {sidebarOpen && (
-              <div className="text-sm leading-tight">
-                <div className="font-medium text-slate-100">{displayName}</div>
-                <div className="text-xs text-slate-400">{displayRole}</div>
+              <div className="text-sm leading-tight flex-1 overflow-hidden">
+                <div className="font-medium text-slate-100 truncate">{displayName}</div>
+                <div className="text-xs text-slate-400 truncate">{displayEmail}</div>
               </div>
             )}
           </button>
@@ -323,11 +327,17 @@ export function Sidebar() {
               </nav>
 
               <div className="border-t border-slate-800 p-3">
-                <button className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-slate-800">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-300 to-blue-500" />
-                  <div className="text-sm leading-tight">
-                    <div className="font-medium text-slate-100">{displayName}</div>
-                    <div className="text-xs text-slate-400">{displayRole}</div>
+                <button 
+                  onClick={() => {
+                    setSidebarOpen(false)
+                    navigate('/profile')
+                  }}
+                  className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-slate-800"
+                >
+                  <div className="h-8 w-8 flex-shrink-0 rounded-full bg-gradient-to-br from-cyan-300 to-blue-500" />
+                  <div className="text-sm leading-tight flex-1 overflow-hidden">
+                    <div className="font-medium text-slate-100 truncate">{displayName}</div>
+                    <div className="text-xs text-slate-400 truncate">{displayEmail}</div>
                   </div>
                 </button>
               </div>
