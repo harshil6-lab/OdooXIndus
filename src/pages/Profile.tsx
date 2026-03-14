@@ -1,11 +1,94 @@
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Mail, Briefcase, MapPin, LogOut } from 'lucide-react'
+import { Mail, Briefcase, MapPin, LogOut, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
+import { supabase } from '@/services/supabaseClient'
 
 export default function Profile() {
+  const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    role: '',
+    department: 'Operations'
+  })
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        if (authError) throw authError
+        
+        if (user) {
+          setUser(user)
+          const { data: profileData, error: profileError } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .single()
+            
+          if (profileError && profileError.code !== 'PGRST116') {
+             throw profileError
+          }
+          
+          setProfile(profileData || null)
+          
+          const fullName = profileData?.full_name || ''
+          const parts = fullName.split(' ')
+          setFormData({
+            firstName: parts[0] || '',
+            lastName: parts.slice(1).join(' ') || '',
+            role: profileData?.role || '',
+            department: 'Operations'
+          })
+        }
+      } catch (error) {
+        console.error("Error loading profile:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleSave = async () => {
+    if (!user) return
+    setIsSaving(true)
+    try {
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim()
+      const { error } = await supabase
+        .from("profiles")
+        .update({ full_name: fullName, role: formData.role })
+        .eq("id", user.id)
+        
+      if (error) throw error
+      setProfile((prev: any) => ({ ...prev, full_name: fullName, role: formData.role }))
+    } catch (error) {
+      console.error("Error updating profile:", error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading || !profile) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -34,7 +117,9 @@ export default function Profile() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary to-primary/60" />
+                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-xl font-bold text-white uppercase">
+                  {formData.firstName?.[0] || ''}{formData.lastName?.[0] || ''}
+                </div>
                 <div>
                   <Button variant="outline" size="sm">Change Avatar</Button>
                 </div>
@@ -43,11 +128,11 @@ export default function Profile() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">First Name</label>
-                  <Input defaultValue="John" className="mt-1" />
+                  <Input name="firstName" value={formData.firstName} onChange={handleChange} className="mt-1" />
                 </div>
                 <div>
                   <label className="text-sm font-medium">Last Name</label>
-                  <Input defaultValue="Doe" className="mt-1" />
+                  <Input name="lastName" value={formData.lastName} onChange={handleChange} className="mt-1" />
                 </div>
               </div>
 
@@ -56,7 +141,7 @@ export default function Profile() {
                   <Mail className="h-4 w-4" />
                   Email
                 </label>
-                <Input type="email" defaultValue="john.doe@company.com" className="mt-1" />
+                <Input type="email" value={user?.email || ''} readOnly disabled className="mt-1 bg-muted" />
               </div>
 
               <div>
@@ -64,7 +149,7 @@ export default function Profile() {
                   <Briefcase className="h-4 w-4" />
                   Job Title
                 </label>
-                <Input defaultValue="Inventory Manager" className="mt-1" />
+                <Input name="role" value={formData.role} onChange={handleChange} className="mt-1" />
               </div>
 
               <div>
@@ -72,10 +157,17 @@ export default function Profile() {
                   <MapPin className="h-4 w-4" />
                   Department
                 </label>
-                <Input defaultValue="Operations" className="mt-1" />
+                <Input name="department" value={formData.department} onChange={handleChange} className="mt-1" />
               </div>
 
-              <Button>Save Changes</Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : 'Save Changes'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
