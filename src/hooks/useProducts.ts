@@ -19,30 +19,27 @@ export function useProducts(): UseProductsResult {
     setLoading(true)
     setError(null)
 
-    const result = await getProducts()
-
-    if (result.error) {
-      setError(result.error.message)
+    try {
+      const data = await getProducts()
+      setProducts(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch products.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    setProducts(result.data ?? [])
-    setLoading(false)
   }, [])
 
   const addProduct = useCallback(async (input: CreateProductInput): Promise<Product | null> => {
     setError(null)
 
-    const result = await createProduct(input)
-
-    if (result.error || !result.data) {
-      setError(result.error?.message ?? 'Failed to create product.')
+    try {
+      const created = await createProduct(input)
+      setProducts((prev) => [created, ...prev])
+      return created
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create product.')
       return null
     }
-
-    setProducts((prev) => [result.data as Product, ...prev])
-    return result.data
   }, [])
 
   useEffect(() => {

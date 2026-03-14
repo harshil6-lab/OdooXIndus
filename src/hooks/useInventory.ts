@@ -39,86 +39,83 @@ export function useInventory(): UseInventoryResult {
     setLoading(true)
     setError(null)
 
-    const [productsResult, warehousesResult, ledgerResult] = await Promise.all([
-      getProducts(),
-      supabase.from('warehouses').select('*').order('created_at', { ascending: false }),
-      supabase.from('stock_ledger').select('*').order('created_at', { ascending: false }).limit(100),
-    ])
+    try {
+      const [productsData, warehousesResult, ledgerResult] = await Promise.all([
+        getProducts(),
+        supabase.from('warehouses').select('*').order('created_at', { ascending: false }),
+        supabase.from('stock_ledger').select('*').order('created_at', { ascending: false }).limit(100),
+      ])
 
-    if (productsResult.error) {
-      setError(productsResult.error.message)
+      if (warehousesResult.error) {
+        console.error(warehousesResult.error)
+        throw new Error(warehousesResult.error.message)
+      }
+
+      if (ledgerResult.error) {
+        console.error(ledgerResult.error)
+        throw new Error(ledgerResult.error.message)
+      }
+
+      setProducts(productsData)
+      setWarehouses((warehousesResult.data ?? []) as Warehouse[])
+      setLedger((ledgerResult.data ?? []) as StockLedgerEntry[])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh inventory data.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    if (warehousesResult.error) {
-      setError(warehousesResult.error.message)
-      setLoading(false)
-      return
-    }
-
-    if (ledgerResult.error) {
-      setError(ledgerResult.error.message)
-      setLoading(false)
-      return
-    }
-
-    setProducts(productsResult.data ?? [])
-    setWarehouses((warehousesResult.data ?? []) as Warehouse[])
-    setLedger((ledgerResult.data ?? []) as StockLedgerEntry[])
-    setLoading(false)
   }, [])
 
   const submitReceipt = useCallback(async (input: CreateReceiptInput): Promise<boolean> => {
     setError(null)
-    const result = await createReceipt(input)
 
-    if (result.error) {
-      setError(result.error.message)
+    try {
+      await createReceipt(input)
+      await refreshInventory()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create receipt.')
       return false
     }
-
-    await refreshInventory()
-    return true
   }, [refreshInventory])
 
   const submitDelivery = useCallback(async (input: CreateDeliveryInput): Promise<boolean> => {
     setError(null)
-    const result = await createDelivery(input)
 
-    if (result.error) {
-      setError(result.error.message)
+    try {
+      await createDelivery(input)
+      await refreshInventory()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create delivery.')
       return false
     }
-
-    await refreshInventory()
-    return true
   }, [refreshInventory])
 
   const submitTransfer = useCallback(async (input: CreateTransferInput): Promise<boolean> => {
     setError(null)
-    const result = await createTransfer(input)
 
-    if (result.error) {
-      setError(result.error.message)
+    try {
+      await createTransfer(input)
+      await refreshInventory()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create transfer.')
       return false
     }
-
-    await refreshInventory()
-    return true
   }, [refreshInventory])
 
   const submitAdjustment = useCallback(async (input: CreateAdjustmentInput): Promise<boolean> => {
     setError(null)
-    const result = await createAdjustment(input)
 
-    if (result.error) {
-      setError(result.error.message)
+    try {
+      await createAdjustment(input)
+      await refreshInventory()
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create adjustment.')
       return false
     }
-
-    await refreshInventory()
-    return true
   }, [refreshInventory])
 
   useEffect(() => {
