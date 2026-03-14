@@ -53,6 +53,13 @@ temp/
 # IDE/editor files
 .idea/
 .vscode/
+*.iml
+*.ipr
+*.iws
+.history/
+.settings/
+.classpath
+.project
 *.swp
 *.swo
 *~

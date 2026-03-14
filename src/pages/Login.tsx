@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
@@ -27,6 +27,7 @@ function MicrosoftMark() {
 }
 
 export default function Login() {
+  const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState('')
@@ -43,7 +44,10 @@ export default function Login() {
     if (!emailValid || !passwordValid) return
 
     setIsLoading(true)
-    setTimeout(() => setIsLoading(false), 1600)
+    setTimeout(() => {
+      setIsLoading(false)
+      navigate('/dashboard')
+    }, 1600)
   }
 
   const updateOtp = (index: number, value: string) => {

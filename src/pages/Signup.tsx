@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, Mail, MapPin, User, Warehouse, Users, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
@@ -16,6 +16,7 @@ type SignupForm = {
 }
 
 export default function Signup() {
+  const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -60,7 +61,10 @@ export default function Signup() {
     event.preventDefault()
     if (!stepValid()) return
     setLoading(true)
-    setTimeout(() => setLoading(false), 1600)
+    setTimeout(() => {
+      setLoading(false)
+      navigate('/dashboard')
+    }, 1600)
   }
 
   const progress = (step / 3) * 100
