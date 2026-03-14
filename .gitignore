@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+.turbo/
+out/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.*
+!.env.example
+
+# Editor/IDE
+.vscode/
+.idea/
+*.suo
+*.sln
+*.csproj
+*.sw[op]
+*~
+.DS_Store
+
+# Testing
+coverage/
+.nyc_output/
+
+# Development
+*.log
+.cache/
+.next/
+.eslintcache
+.parcel-cache/
+tmp/
+temp/
+
+# Optional npm cache directory
+.npm/
+
+# Optional REPL history
+.node_repl_history
+
+# OS files
+Thumbs.db
+
+# Vite specific
+.vite/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Generated config artifacts (when using ts config source files)
+vite.config.js
+vite.config.d.ts
