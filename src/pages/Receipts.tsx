@@ -22,17 +22,14 @@ import {
 } from '@/components/ui/Dialog'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { usePaginatedTable } from '@/hooks/usePaginatedTable'
 import { useInventory } from '@/hooks/useInventory'
-import { getCurrentUser } from '@/services/profileService'
-import { supabase } from '@/services/supabaseClient'
 import { Receipt } from '@/types/inventory'
 import { generateReceiptPDF } from '@/utils/pdfGenerator'
 
 export default function Receipts() {
-  const { products, submitReceipt, loading: inventoryLoading } = useInventory()
-  const [receipts, setReceipts] = useState<Receipt[]>([])
-  const [loadingReceipts, setLoadingReceipts] = useState(false)
-  const [fetchError, setFetchError] = useState<string | null>(null)
+  const { products, submitReceipt, loading: inventoryLoading } = useInventory({ includeWarehouses: false, includeLedger: false, productPageSize: 100 })
+  const { items: receipts, loading: loadingReceipts, error: fetchError, refresh: fetchReceipts } = usePaginatedTable<Receipt>('receipts')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null)
@@ -45,30 +42,6 @@ export default function Receipts() {
     reference: '',
     note: '',
   })
-
-  const fetchReceipts = async () => {
-    setLoadingReceipts(true)
-    try {
-      const user = await getCurrentUser()
-      const { data, error } = await supabase
-        .from('receipts')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setReceipts(data || [])
-    } catch (err) {
-      console.error('Failed to fetch receipts:', err)
-      setFetchError((err as Error).message)
-    } finally {
-      setLoadingReceipts(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchReceipts()
-  }, [])
 
   const handleSubmitReceipt = async () => {
     if (!formData.productId || !formData.quantity) {

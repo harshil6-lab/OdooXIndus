@@ -35,6 +35,7 @@ import {
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { useInventory } from '@/hooks/useInventory'
+import { createProduct } from '@/services/productService'
 import { Product } from '@/types/inventory'
 
 // Derive chart data from real ledger entries (group by month)
@@ -139,7 +140,7 @@ const KPICard = ({
 )
 
 export default function Dashboard() {
-  const { products, warehouses, ledger, loading, error, refreshInventory, submitReceipt, submitTransfer } = useInventory()
+  const { products, warehouses, ledger, loading, error, refreshInventory, submitReceipt, submitTransfer, productCount, warehouseCount, ledgerCount } = useInventory({ includeCounts: true, includeLedger: true, includeWarehouses: true, productPageSize: 100, warehousePageSize: 50, ledgerPageSize: 40 })
   const chartData = buildChartData(ledger)
   const [toast, setToast] = useState<string | null>(null)
   
@@ -188,7 +189,6 @@ export default function Dashboard() {
 
     setSubmitting(true)
     try {
-      const { createProduct } = await import('@/services/productService')
       await createProduct({
         name: productForm.name,
         sku: productForm.sku,
@@ -281,7 +281,7 @@ export default function Dashboard() {
   const stats = [
     {
       title: 'Total Products',
-      value: products.length,
+      value: productCount,
       icon: <Code2 className="h-5 w-5" />,
       description: `${products.reduce((s, p) => s + p.stock, 0)} total units`,
       delay: 0.1,
@@ -295,16 +295,16 @@ export default function Dashboard() {
     },
     {
       title: 'Recent Operations',
-      value: ledger.length,
+      value: ledgerCount,
       icon: <Clock className="h-5 w-5" />,
       description: 'Total logged',
       delay: 0.3,
     },
     {
       title: 'Active Warehouses',
-      value: warehouses.length,
+      value: warehouseCount,
       icon: <Truck className="h-5 w-5" />,
-      description: `${warehouses.length} location${warehouses.length !== 1 ? 's' : ''}`,
+      description: `${warehouseCount} location${warehouseCount !== 1 ? 's' : ''}`,
       delay: 0.4,
     },
   ]

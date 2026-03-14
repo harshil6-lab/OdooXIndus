@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/Button'
 import { useInventory } from '@/hooks/useInventory'
 
 export default function MoveHistory() {
-  const { ledger, products, warehouses, loading, error, refreshInventory } = useInventory()
+  const { ledger, products, warehouses, loading, error, refreshInventory } = useInventory({ includeCounts: false, includeLedger: true, includeWarehouses: true, productPageSize: 50, warehousePageSize: 50, ledgerPageSize: 50 })
 
   const getOperationColor = (type: string): 'success' | 'info' | 'default' | 'warning' => {
     const map: Record<string, 'success' | 'info' | 'default' | 'warning'> = {
