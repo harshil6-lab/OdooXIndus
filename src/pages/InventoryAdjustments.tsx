@@ -31,6 +31,7 @@ export default function InventoryAdjustments() {
   const { products, submitAdjustment, loading: inventoryLoading } = useInventory()
   const [adjustments, setAdjustments] = useState<Adjustment[]>([])
   const [loadingAdjustments, setLoadingAdjustments] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -55,6 +56,7 @@ export default function InventoryAdjustments() {
       setAdjustments(data || [])
     } catch (err) {
       console.error('Failed to fetch adjustments:', err)
+      setFetchError((err as Error).message)
     } finally {
       setLoadingAdjustments(false)
     }
@@ -108,7 +110,14 @@ export default function InventoryAdjustments() {
     )
   }
 
-
+  if (fetchError && adjustments.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <p className="text-destructive">Error loading adjustments: {fetchError}</p>
+        <Button onClick={fetchAdjustments}>Retry</Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -166,7 +175,7 @@ export default function InventoryAdjustments() {
                         className="border-b border-border"
                       >
                         <TableCell className="font-medium">{adj.id.slice(0, 8)}...</TableCell>
-                        <TableCell className="text-xs">{adj.product_id.slice(0, 8)}...</TableCell>
+                        <TableCell className="text-xs">{products.find(p => p.id === adj.product_id)?.name || adj.product_id.slice(0, 8) + '...'}</TableCell>
                         <TableCell className="text-right">{adj.previous_stock}</TableCell>
                         <TableCell className="text-right">{adj.new_stock}</TableCell>
                         <TableCell className={`text-right font-semibold ${adj.difference > 0 ? 'text-green-600' : adj.difference < 0 ? 'text-red-600' : ''}`}>

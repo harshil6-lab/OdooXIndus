@@ -100,10 +100,8 @@ export interface CreateProductInput {
   name: string
   sku: string
   category?: string | null
-  stock?: number
   reorder_level?: number
   price?: number
-  warehouse_id?: string | null
 }
 
 export interface CreateReceiptInput {

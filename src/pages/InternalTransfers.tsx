@@ -31,6 +31,7 @@ export default function InternalTransfers() {
   const { products, warehouses, submitTransfer, loading: inventoryLoading } = useInventory()
   const [transfers, setTransfers] = useState<Transfer[]>([])
   const [loadingTransfers, setLoadingTransfers] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -56,6 +57,7 @@ export default function InternalTransfers() {
       setTransfers(data || [])
     } catch (err) {
       console.error('Failed to fetch transfers:', err)
+      setFetchError((err as Error).message)
     } finally {
       setLoadingTransfers(false)
     }
@@ -116,7 +118,14 @@ export default function InternalTransfers() {
     )
   }
 
-
+  if (fetchError && transfers.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <p className="text-destructive">Error loading transfers: {fetchError}</p>
+        <Button onClick={fetchTransfers}>Retry</Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -174,9 +183,9 @@ export default function InternalTransfers() {
                         className="border-b border-border"
                       >
                         <TableCell className="font-medium">{transfer.id.slice(0, 8)}...</TableCell>
-                        <TableCell className="text-xs">{transfer.product_id.slice(0, 8)}...</TableCell>
-                        <TableCell>{transfer.source_warehouse_id.slice(0, 8)}...</TableCell>
-                        <TableCell>{transfer.destination_warehouse_id.slice(0, 8)}...</TableCell>
+                        <TableCell className="text-xs">{products.find(p => p.id === transfer.product_id)?.name || transfer.product_id.slice(0, 8) + '...'}</TableCell>
+                        <TableCell>{warehouses.find(w => w.id === transfer.source_warehouse_id)?.name || transfer.source_warehouse_id.slice(0, 8) + '...'}</TableCell>
+                        <TableCell>{warehouses.find(w => w.id === transfer.destination_warehouse_id)?.name || transfer.destination_warehouse_id.slice(0, 8) + '...'}</TableCell>
                         <TableCell className="text-right font-semibold">{transfer.quantity}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {transfer.created_at ? new Date(transfer.created_at).toLocaleDateString() : 'N/A'}

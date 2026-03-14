@@ -32,6 +32,7 @@ export default function Receipts() {
   const { products, submitReceipt, loading: inventoryLoading } = useInventory()
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [loadingReceipts, setLoadingReceipts] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null)
@@ -59,6 +60,7 @@ export default function Receipts() {
       setReceipts(data || [])
     } catch (err) {
       console.error('Failed to fetch receipts:', err)
+      setFetchError((err as Error).message)
     } finally {
       setLoadingReceipts(false)
     }
@@ -122,6 +124,15 @@ export default function Receipts() {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (fetchError && receipts.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <p className="text-destructive">Error loading receipts: {fetchError}</p>
+        <Button onClick={fetchReceipts}>Retry</Button>
       </div>
     )
   }
@@ -194,7 +205,7 @@ export default function Receipts() {
                         <TableCell className="font-medium">{receipt.id.slice(0, 8)}...</TableCell>
                         <TableCell>{receipt.supplier || 'N/A'}</TableCell>
                         <TableCell>{receipt.reference || 'N/A'}</TableCell>
-                        <TableCell className="text-xs">{receipt.product_id.slice(0, 8)}...</TableCell>
+                        <TableCell className="text-xs">{products.find(p => p.id === receipt.product_id)?.name || receipt.product_id.slice(0, 8) + '...'}</TableCell>
                         <TableCell className="text-right font-semibold">{receipt.quantity}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {receipt.created_at ? new Date(receipt.created_at).toLocaleDateString() : 'N/A'}
