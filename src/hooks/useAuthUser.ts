@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/services/supabaseClient'
-import { getUserProfile, getOrCreateProfile } from '@/services/profileService'
+import { getUserProfile, createUserProfile } from '@/services/profileService'
 import { UserProfile } from '@/types/inventory'
 import type { User } from '@supabase/supabase-js'
 
@@ -45,9 +45,20 @@ export function useAuthUser(): UseAuthUserResult {
 
       setUser(authUser)
 
-      // Fetch or create user profile
-      const userProfile = await getOrCreateProfile(authUser.id, authUser.email || '')
-      setProfile(userProfile)
+      // Fetch or create user profile with OAuth metadata
+      try {
+        const userProfile = await getUserProfile(authUser.id)
+        setProfile(userProfile)
+      } catch (error) {
+        // Profile doesn't exist, create it with OAuth metadata if available
+        const fullName = authUser.user_metadata?.full_name || authUser.user_metadata?.name || null
+        const userProfile = await createUserProfile({
+          id: authUser.id,
+          email: authUser.email || '',
+          full_name: fullName,
+        })
+        setProfile(userProfile)
+      }
     } catch (err) {
       console.error('Error fetching user and profile:', err)
       setError(err instanceof Error ? err.message : 'Failed to load user data')
@@ -67,8 +78,20 @@ export function useAuthUser(): UseAuthUserResult {
       if (event === 'SIGNED_IN' && session?.user) {
         setUser(session.user)
         try {
-          const userProfile = await getOrCreateProfile(session.user.id, session.user.email || '')
-          setProfile(userProfile)
+          // Try to get existing profile
+          try {
+            const userProfile = await getUserProfile(session.user.id)
+            setProfile(userProfile)
+          } catch (error) {
+            // Profile doesn't exist, create it with OAuth metadata if available
+            const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || null
+            const userProfile = await createUserProfile({
+              id: session.user.id,
+              email: session.user.email || '',
+              full_name: fullName,
+            })
+            setProfile(userProfile)
+          }
         } catch (err) {
           console.error('Error fetching profile on sign in:', err)
           setError(err instanceof Error ? err.message : 'Failed to load profile')

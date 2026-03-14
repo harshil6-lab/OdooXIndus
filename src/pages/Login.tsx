@@ -16,17 +16,6 @@ function GoogleMark() {
   )
 }
 
-function MicrosoftMark() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-      <rect x="2" y="2" width="9" height="9" fill="#F25022" />
-      <rect x="13" y="2" width="9" height="9" fill="#7FBA00" />
-      <rect x="2" y="13" width="9" height="9" fill="#00A4EF" />
-      <rect x="13" y="13" width="9" height="9" fill="#FFB900" />
-    </svg>
-  )
-}
-
 export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -68,6 +57,25 @@ export default function Login() {
   const updateOtp = (index: number, value: string) => {
     const next = value.replace(/\D/g, '').slice(0, 1)
     setOtp((current) => current.map((item, i) => (i === index ? next : item)))
+  }
+
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      })
+
+      if (error) {
+        console.error('Google login error:', error)
+        alert('Google login failed: ' + error.message)
+      }
+    } catch (error) {
+      console.error('Google login error:', error)
+      alert('Google login failed: ' + (error as Error).message)
+    }
   }
 
   return (
@@ -250,19 +258,11 @@ export default function Login() {
                 whileHover={{ y: -1 }}
                 whileTap={{ scale: 0.98 }}
                 type="button"
+                onClick={signInWithGoogle}
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 text-sm text-white transition hover:bg-white/10"
               >
                 <GoogleMark />
                 Continue with Google
-              </motion.button>
-              <motion.button
-                whileHover={{ y: -1 }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 text-sm text-white transition hover:bg-white/10"
-              >
-                <MicrosoftMark />
-                Continue with Microsoft
               </motion.button>
             </div>
 
