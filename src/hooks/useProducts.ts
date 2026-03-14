@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { createProduct, getProducts } from '@/services/productService'
+import { createProduct, getProducts, updateProduct, deleteProduct, UpdateProductInput } from '@/services/productService'
 import { CreateProductInput, Product } from '@/types/inventory'
 
 interface UseProductsResult {
@@ -8,6 +8,8 @@ interface UseProductsResult {
   error: string | null
   fetchProducts: () => Promise<void>
   addProduct: (input: CreateProductInput) => Promise<Product | null>
+  editProduct: (id: string, input: UpdateProductInput) => Promise<Product | null>
+  removeProduct: (id: string) => Promise<boolean>
 }
 
 export function useProducts(): UseProductsResult {
@@ -42,6 +44,32 @@ export function useProducts(): UseProductsResult {
     }
   }, [])
 
+  const editProduct = useCallback(async (id: string, input: UpdateProductInput): Promise<Product | null> => {
+    setError(null)
+
+    try {
+      const updated = await updateProduct(id, input)
+      setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)))
+      return updated
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update product.')
+      return null
+    }
+  }, [])
+
+  const removeProduct = useCallback(async (id: string): Promise<boolean> => {
+    setError(null)
+
+    try {
+      await deleteProduct(id)
+      setProducts((prev) => prev.filter((p) => p.id !== id))
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete product.')
+      return false
+    }
+  }, [])
+
   useEffect(() => {
     void fetchProducts()
   }, [fetchProducts])
@@ -52,5 +80,7 @@ export function useProducts(): UseProductsResult {
     error,
     fetchProducts,
     addProduct,
+    editProduct,
+    removeProduct,
   }
 }

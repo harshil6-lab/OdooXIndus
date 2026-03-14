@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { Layout } from '@/components/layout/Layout'
+import { ProtectedRoute } from '@/components/common/ProtectedRoute'
 import Dashboard from '@/pages/Dashboard'
 import Products from '@/pages/Products'
 import Receipts from '@/pages/Receipts'
@@ -31,81 +32,101 @@ function App() {
           <Route
             path="/dashboard"
             element={
-              <Layout>
-                <Dashboard />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <Dashboard />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/products"
             element={
-              <Layout>
-                <Products />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <Products />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/receipts"
             element={
-              <Layout>
-                <Receipts />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <Receipts />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/delivery"
             element={
-              <Layout>
-                <DeliveryOrders />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <DeliveryOrders />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/transfers"
             element={
-              <Layout>
-                <InternalTransfers />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <InternalTransfers />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/adjustments"
             element={
-              <Layout>
-                <InventoryAdjustments />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <InventoryAdjustments />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/history"
             element={
-              <Layout>
-                <MoveHistory />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <MoveHistory />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/warehouses"
             element={
-              <Layout>
-                <Warehouses />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <Warehouses />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/settings"
             element={
-              <Layout>
-                <Settings />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <Settings />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/profile"
             element={
-              <Layout>
-                <Profile />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <Profile />
+                </Layout>
+              </ProtectedRoute>
             }
           />
         </Routes>

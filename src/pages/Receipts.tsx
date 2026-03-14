@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Eye } from 'lucide-react'
+import { Plus, Eye, Loader2, Download } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import {
@@ -22,30 +22,108 @@ import {
 } from '@/components/ui/Dialog'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
-import { useInventoryStore } from '@/stores/inventoryStore'
+import { useInventory } from '@/hooks/useInventory'
+import { getCurrentUser } from '@/services/profileService'
+import { supabase } from '@/services/supabaseClient'
+import { Receipt } from '@/types/inventory'
+import { generateReceiptPDF } from '@/utils/pdfGenerator'
 
 export default function Receipts() {
-  const { receipts, products } = useInventoryStore()
+  const { products, submitReceipt, loading: inventoryLoading } = useInventory()
+  const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [loadingReceipts, setLoadingReceipts] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isViewOpen, setIsViewOpen] = useState(false)
-  const [selectedReceipt, setSelectedReceipt] = useState<any>(null)
+  const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
-    supplier: '',
     productId: '',
+    warehouseId: '',
     quantity: 0,
+    supplier: '',
+    reference: '',
+    note: '',
   })
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'warning'
-      case 'received':
-        return 'info'
-      case 'verified':
-        return 'success'
-      default:
-        return 'default'
+  const fetchReceipts = async () => {
+    setLoadingReceipts(true)
+    try {
+      const user = await getCurrentUser()
+      const { data, error } = await supabase
+        .from('receipts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setReceipts(data || [])
+    } catch (err) {
+      console.error('Failed to fetch receipts:', err)
+    } finally {
+      setLoadingReceipts(false)
     }
+  }
+
+  useEffect(() => {
+    fetchReceipts()
+  }, [])
+
+  const handleSubmitReceipt = async () => {
+    if (!formData.productId || !formData.quantity) {
+      alert('Please fill in required fields')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const success = await submitReceipt({
+        productId: formData.productId,
+        warehouseId: formData.warehouseId || null,
+        quantity: formData.quantity,
+        supplier: formData.supplier || null,
+        reference: formData.reference || null,
+        note: formData.note || null,
+      })
+
+      if (success) {
+        setIsCreateOpen(false)
+        setFormData({
+          productId: '',
+          warehouseId: '',
+          quantity: 0,
+          supplier: '',
+          reference: '',
+          note: '',
+        })
+        await fetchReceipts()
+      }
+    } catch (err) {
+      alert('Failed to create receipt: ' + (err as Error).message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDownloadPDF = (receipt: Receipt) => {
+    const product = products.find(p => p.id === receipt.product_id)
+    const productName = product ? product.name : 'Unknown Product'
+    
+    generateReceiptPDF({
+      receipt,
+      productName,
+      warehouseName: receipt.warehouse_id || undefined,
+      supplierName: receipt.supplier || undefined,
+    })
+  }
+
+  const loading = inventoryLoading || loadingReceipts
+
+  if (loading && receipts.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -90,42 +168,62 @@ export default function Receipts() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Receipt #</TableHead>
+                    <TableHead>Receipt ID</TableHead>
                     <TableHead>Supplier</TableHead>
+                    <TableHead>Reference</TableHead>
+                    <TableHead>Product ID</TableHead>
+                    <TableHead className="text-right">Quantity</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Items</TableHead>
-                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {receipts.map((receipt) => (
-                    <motion.tr
-                      key={receipt.id}
-                      whileHover={{ backgroundColor: 'var(--accent)' }}
-                      className="border-b border-border"
-                    >
-                      <TableCell className="font-medium">{receipt.receiptNumber}</TableCell>
-                      <TableCell>{receipt.supplier}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{receipt.date}</TableCell>
-                      <TableCell className="text-right font-semibold">{receipt.totalItems}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusColor(receipt.status)}>{receipt.status}</Badge>
+                  {receipts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No receipts yet
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedReceipt(receipt)
-                            setIsViewOpen(true)
-                          }}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </motion.tr>
-                  ))}
+                    </TableRow>
+                  ) : (
+                    receipts.map((receipt) => (
+                      <motion.tr
+                        key={receipt.id}
+                        whileHover={{ backgroundColor: 'var(--accent)' }}
+                        className="border-b border-border"
+                      >
+                        <TableCell className="font-medium">{receipt.id.slice(0, 8)}...</TableCell>
+                        <TableCell>{receipt.supplier || 'N/A'}</TableCell>
+                        <TableCell>{receipt.reference || 'N/A'}</TableCell>
+                        <TableCell className="text-xs">{receipt.product_id.slice(0, 8)}...</TableCell>
+                        <TableCell className="text-right font-semibold">{receipt.quantity}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {receipt.created_at ? new Date(receipt.created_at).toLocaleDateString() : 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedReceipt(receipt)
+                                setIsViewOpen(true)
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadPDF(receipt)}
+                              title="Download PDF"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </motion.tr>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -143,18 +241,11 @@ export default function Receipts() {
 
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Supplier</label>
-              <Input
-                value={formData.supplier}
-                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                placeholder="Enter supplier name"
-                className="mt-1"
-              />
-            </div>
-
-            <div>
               <label className="text-sm font-medium">Product</label>
-              <Select value={formData.productId} onChange={(e) => setFormData({ ...formData, productId: e.target.value })}>
+              <Select 
+                value={formData.productId} 
+                onChange={(e) => setFormData({ ...formData, productId: e.target.value })}
+              >
                 <option value="">Select product</option>
                 {products.map((product) => (
                   <option key={product.id} value={product.id}>
@@ -171,15 +262,48 @@ export default function Receipts() {
                 value={formData.quantity}
                 onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
                 className="mt-1"
+                min="1"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Supplier (Optional)</label>
+              <Input
+                value={formData.supplier}
+                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                placeholder="Supplier name"
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Reference (Optional)</label>
+              <Input
+                value={formData.reference}
+                onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
+                placeholder="PO number or reference"
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Note (Optional)</label>
+              <Input
+                value={formData.note}
+                onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                placeholder="Additional notes"
+                className="mt-1"
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button onClick={() => setIsCreateOpen(false)}>Create Receipt</Button>
+            <Button onClick={handleSubmitReceipt} disabled={submitting}>
+              {submitting ? 'Creating...' : 'Create Receipt'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -196,34 +320,39 @@ export default function Receipts() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-muted-foreground">Receipt #</label>
-                  <p className="font-medium">{selectedReceipt.receiptNumber}</p>
+                  <label className="text-xs text-muted-foreground">Receipt ID</label>
+                  <p className="font-medium text-sm">{selectedReceipt.id}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Product ID</label>
+                  <p className="font-medium text-sm">{selectedReceipt.product_id}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Quantity</label>
+                  <p className="font-medium">{selectedReceipt.quantity}</p>
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Supplier</label>
-                  <p className="font-medium">{selectedReceipt.supplier}</p>
+                  <p className="font-medium">{selectedReceipt.supplier || 'N/A'}</p>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground">Date</label>
-                  <p className="font-medium">{selectedReceipt.date}</p>
+                  <label className="text-xs text-muted-foreground">Reference</label>
+                  <p className="font-medium">{selectedReceipt.reference || 'N/A'}</p>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground">Status</label>
-                  <Badge variant={getStatusColor(selectedReceipt.status)}>{selectedReceipt.status}</Badge>
+                  <label className="text-xs text-muted-foreground">Created</label>
+                  <p className="font-medium text-sm">
+                    {selectedReceipt.created_at ? new Date(selectedReceipt.created_at).toLocaleString() : 'N/A'}
+                  </p>
                 </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Items</label>
-                <div className="mt-2 space-y-2">
-                  {selectedReceipt.items.map((item: any, idx: number) => (
-                    <div key={idx} className="flex justify-between p-2 bg-muted-foreground/10 rounded">
-                      <span>{item.productName}</span>
-                      <span>{item.quantity} units</span>
-                    </div>
-                  ))}
+              {selectedReceipt.note && (
+                <div>
+                  <label className="text-sm font-medium">Notes</label>
+                  <p className="mt-2 p-3 bg-muted/50 rounded text-sm">{selectedReceipt.note}</p>
                 </div>
-              </div>
+              )}
             </div>
           )}
 

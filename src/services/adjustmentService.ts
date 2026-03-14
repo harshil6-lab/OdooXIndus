@@ -1,4 +1,5 @@
 import { supabase } from '@/services/supabaseClient'
+import { getCurrentUser } from '@/services/profileService'
 import { Adjustment, CreateAdjustmentInput, StockLedgerEntry } from '@/types/inventory'
 
 interface AdjustmentResult {
@@ -11,10 +12,13 @@ export async function createAdjustment(input: CreateAdjustmentInput): Promise<Ad
     throw new Error('Counted stock cannot be negative.')
   }
 
+  const user = await getCurrentUser()
+
   const { data: productRow, error: productError } = await supabase
     .from('products')
     .select('id, stock')
     .eq('id', input.productId)
+    .eq('user_id', user.id)
     .single()
 
   if (productError) {
@@ -29,6 +33,7 @@ export async function createAdjustment(input: CreateAdjustmentInput): Promise<Ad
     .from('products')
     .update({ stock: input.countedStock })
     .eq('id', input.productId)
+    .eq('user_id', user.id)
 
   if (stockUpdateError) {
     console.error(stockUpdateError)
@@ -38,6 +43,7 @@ export async function createAdjustment(input: CreateAdjustmentInput): Promise<Ad
   const { data: adjustmentData, error: adjustmentError } = await supabase
     .from('adjustments')
     .insert({
+      user_id: user.id,
       product_id: input.productId,
       warehouse_id: input.warehouseId ?? null,
       previous_stock: previousStock,
@@ -55,11 +61,13 @@ export async function createAdjustment(input: CreateAdjustmentInput): Promise<Ad
       .from('products')
       .update({ stock: previousStock })
       .eq('id', input.productId)
+      .eq('user_id', user.id)
 
     throw new Error(adjustmentError.message)
   }
 
   const ledgerPayload: StockLedgerEntry = {
+    user_id: user.id,
     product_id: input.productId,
     warehouse_id: input.warehouseId ?? null,
     operation_type: 'adjustment',

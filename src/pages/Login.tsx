@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { ArrowLeft, Mail, ShieldCheck, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { supabase } from '@/services/supabaseClient'
+import { getUserProfile, createUserProfile } from '@/services/profileService'
 
 function GoogleMark() {
   return (
@@ -15,44 +17,158 @@ function GoogleMark() {
   )
 }
 
-function MicrosoftMark() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-      <rect x="2" y="2" width="9" height="9" fill="#F25022" />
-      <rect x="13" y="2" width="9" height="9" fill="#7FBA00" />
-      <rect x="2" y="13" width="9" height="9" fill="#00A4EF" />
-      <rect x="13" y="13" width="9" height="9" fill="#FFB900" />
-    </svg>
-  )
-}
-
 export default function Login() {
   const navigate = useNavigate()
-  const [showPassword, setShowPassword] = useState(false)
+  const location = useLocation()
+  const otpInputRef = useRef<HTMLInputElement>(null)
+  
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [otp, setOtp] = useState(['', '', '', '', '', ''])
-  const [touched, setTouched] = useState({ email: false, password: false })
+  const [otp, setOtp] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
+  const [error, setError] = useState('')
+  const [touched, setTouched] = useState(false)
 
   const emailValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email), [email])
-  const passwordValid = password.length >= 8
 
-  const submit = (event: React.FormEvent) => {
+  // Listen for auth state changes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        try {
+          // Try to get existing profile, create if doesn't exist
+          try {
+            await getUserProfile(session.user.id)
+          } catch {
+            // Profile doesn't exist, create it
+            await createUserProfile({
+              id: session.user.id,
+              email: session.user.email || '',
+              full_name: session.user.user_metadata?.full_name || null,
+            })
+          }
+          
+          // Redirect to dashboard
+          const from = (location.state as any)?.from?.pathname || '/dashboard'
+          navigate(from, { replace: true })
+        } catch (error) {
+          console.error('Error handling auth:', error)
+        }
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [navigate, location])
+
+  // Auto-focus OTP input when OTP is sent
+  useEffect(() => {
+    if (otpSent && otpInputRef.current) {
+      otpInputRef.current.focus()
+    }
+  }, [otpSent])
+
+  const sendOTP = async (event: React.FormEvent) => {
     event.preventDefault()
-    setTouched({ email: true, password: true })
-    if (!emailValid || !passwordValid) return
+    setTouched(true)
+    setError('')
+    
+    if (!emailValid) {
+      setError('Please enter a valid email address')
+      return
+    }
 
     setIsLoading(true)
-    setTimeout(() => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: {
+          shouldCreateUser: true,
+        },
+      })
+
+      if (error) throw error
+
+      setOtpSent(true)
+      setError('')
+    } catch (error) {
+      console.error('Error sending OTP:', error)
+      setError((error as Error).message)
+    } finally {
       setIsLoading(false)
-      navigate('/dashboard')
-    }, 1600)
+    }
   }
 
-  const updateOtp = (index: number, value: string) => {
-    const next = value.replace(/\D/g, '').slice(0, 1)
-    setOtp((current) => current.map((item, i) => (i === index ? next : item)))
+  const verifyOTP = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setError('')
+
+    if (otp.length !== 6) {
+      setError('Please enter a 6-digit OTP code')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: otp,
+        type: 'email',
+      })
+
+      if (error) throw error
+
+      // Auth state listener will handle navigation
+    } catch (error) {
+      console.error('Error verifying OTP:', error)
+      setError((error as Error).message)
+      setOtp('')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleOtpChange = (value: string) => {
+    // Only allow digits and limit to 6 characters
+    const sanitized = value.replace(/\D/g, '').slice(0, 6)
+    setOtp(sanitized)
+    
+    // Auto-verify when 6 digits are entered
+    if (sanitized.length === 6) {
+      setTimeout(() => {
+        // Create a synthetic event for auto-submit
+        const form = document.getElementById('otp-form') as HTMLFormElement
+        if (form) {
+          form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+        }
+      }, 300)
+    }
+  }
+
+  const handleOtpPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    event.preventDefault()
+    const pastedData = event.clipboardData.getData('text')
+    handleOtpChange(pastedData)
+  }
+
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      })
+
+      if (error) {
+        console.error('Google login error:', error)
+        alert('Google login failed: ' + error.message)
+      }
+    } catch (error) {
+      console.error('Google login error:', error)
+      alert('Google login failed: ' + (error as Error).message)
+    }
   }
 
   return (
@@ -120,109 +236,132 @@ export default function Login() {
                 CI
               </div>
               <h2 className="mt-4 text-2xl font-semibold">Sign in to CoreInventory</h2>
-              <p className="mt-1 text-sm text-slate-300">Welcome back to your operations workspace</p>
+              <p className="mt-1 text-sm text-slate-300">
+                {otpSent ? 'Enter the code sent to your email' : 'Welcome back to your operations workspace'}
+              </p>
             </div>
 
-            <form onSubmit={submit} className="space-y-4">
-              <div className="relative">
-                <input
-                  id="loginEmail"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  onBlur={() => setTouched((old) => ({ ...old, email: true }))}
-                  placeholder=" "
-                  className={`peer h-12 w-full rounded-xl border bg-white/5 px-11 pt-4 text-sm text-white outline-none transition-all placeholder:text-transparent focus:ring-2 ${
-                    touched.email && !emailValid
-                      ? 'border-red-400/80 focus:ring-red-300/40'
-                      : emailValid && touched.email
-                        ? 'border-emerald-400/70 focus:ring-emerald-300/40'
-                        : 'border-white/20 focus:border-cyan-300/70 focus:ring-cyan-300/30'
-                  }`}
-                />
-                <Mail className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-300" />
-                <label
-                  htmlFor="loginEmail"
-                  className="pointer-events-none absolute left-10 top-3.5 text-sm text-slate-300 transition-all peer-focus:top-1.5 peer-focus:text-[11px] peer-focus:text-cyan-200 peer-[:not(:placeholder-shown)]:top-1.5 peer-[:not(:placeholder-shown)]:text-[11px]"
-                >
-                  Email Address
-                </label>
-                <p className="mt-1 text-xs text-slate-300">
-                  {touched.email && !emailValid ? 'Please enter a valid email.' : emailValid ? 'Valid email format.' : 'Use your work email.'}
-                </p>
-              </div>
+            {!otpSent ? (
+              <form onSubmit={sendOTP} className="space-y-4">
+                <div className="relative">
+                  <input
+                    id="loginEmail"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    onBlur={() => setTouched(true)}
+                    placeholder=" "
+                    disabled={isLoading}
+                    className={`peer h-12 w-full rounded-xl border bg-white/5 px-11 pt-4 text-sm text-white outline-none transition-all placeholder:text-transparent focus:ring-2 disabled:opacity-50 ${
+                      touched && !emailValid
+                        ? 'border-red-400/80 focus:ring-red-300/40'
+                        : emailValid && touched
+                          ? 'border-emerald-400/70 focus:ring-emerald-300/40'
+                          : 'border-white/20 focus:border-cyan-300/70 focus:ring-cyan-300/30'
+                    }`}
+                  />
+                  <Mail className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-300" />
+                  <label
+                    htmlFor="loginEmail"
+                    className="pointer-events-none absolute left-10 top-3.5 text-sm text-slate-300 transition-all peer-focus:top-1.5 peer-focus:text-[11px] peer-focus:text-cyan-200 peer-[:not(:placeholder-shown)]:top-1.5 peer-[:not(:placeholder-shown)]:text-[11px]"
+                  >
+                    Email Address
+                  </label>
+                  {touched && !emailValid && (
+                    <p className="mt-1 text-xs text-red-400">Please enter a valid email address</p>
+                  )}
+                  {emailValid && touched && (
+                    <p className="mt-1 text-xs text-emerald-400">Valid email format</p>
+                  )}
+                </div>
 
-              <div className="relative">
-                <input
-                  id="loginPassword"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  onBlur={() => setTouched((old) => ({ ...old, password: true }))}
-                  placeholder=" "
-                  className={`peer h-12 w-full rounded-xl border bg-white/5 px-11 pr-12 pt-4 text-sm text-white outline-none transition-all placeholder:text-transparent focus:ring-2 ${
-                    touched.password && !passwordValid
-                      ? 'border-red-400/80 focus:ring-red-300/40'
-                      : passwordValid && touched.password
-                        ? 'border-emerald-400/70 focus:ring-emerald-300/40'
-                        : 'border-white/20 focus:border-cyan-300/70 focus:ring-cyan-300/30'
-                  }`}
-                />
-                <Lock className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-300" />
-                <label
-                  htmlFor="loginPassword"
-                  className="pointer-events-none absolute left-10 top-3.5 text-sm text-slate-300 transition-all peer-focus:top-1.5 peer-focus:text-[11px] peer-focus:text-cyan-200 peer-[:not(:placeholder-shown)]:top-1.5 peer-[:not(:placeholder-shown)]:text-[11px]"
+                {error && (
+                  <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3">
+                    <p className="text-sm text-red-400">{error}</p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1 text-xs text-slate-300">
+                    <ShieldCheck className="h-3.5 w-3.5 text-cyan-300" />
+                    Enterprise-grade security
+                  </span>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={isLoading || !emailValid}
+                  className="h-12 w-full rounded-xl bg-gradient-to-r from-cyan-300 to-blue-500 font-semibold text-slate-950 transition hover:from-cyan-200 hover:to-blue-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Password
-                </label>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Sending code...
+                    </>
+                  ) : (
+                    'Send OTP Code'
+                  )}
+                </motion.button>
+              </form>
+            ) : (
+              <form id="otp-form" onSubmit={verifyOTP} className="space-y-4">
+                <div className="relative">
+                  <input
+                    ref={otpInputRef}
+                    id="otpCode"
+                    type="text"
+                    inputMode="numeric"
+                    value={otp}
+                    onChange={(e) => handleOtpChange(e.target.value)}
+                    onPaste={handleOtpPaste}
+                    placeholder="000000"
+                    maxLength={6}
+                    disabled={isLoading}
+                    className="h-14 w-full rounded-xl border border-white/20 bg-white/5 text-center text-2xl font-mono tracking-widest text-white outline-none transition-all focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/30 disabled:opacity-50"
+                  />
+                  <p className="mt-2 text-center text-xs text-slate-300">
+                    Enter the 6-digit code sent to <span className="text-cyan-200">{email}</span>
+                  </p>
+                </div>
+
+                {error && (
+                  <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3">
+                    <p className="text-sm text-red-400">{error}</p>
+                  </div>
+                )}
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={isLoading || otp.length !== 6}
+                  className="h-12 w-full rounded-xl bg-gradient-to-r from-cyan-300 to-blue-500 font-semibold text-slate-950 transition hover:from-cyan-200 hover:to-blue-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    'Verify & Sign In'
+                  )}
+                </motion.button>
+
                 <button
                   type="button"
-                  onClick={() => setShowPassword((old) => !old)}
-                  className="absolute right-3 top-3 rounded-md p-1 text-slate-300 transition hover:bg-white/10 hover:text-white"
-                  aria-label="Toggle password visibility"
+                  onClick={() => {
+                    setOtpSent(false)
+                    setOtp('')
+                    setError('')
+                  }}
+                  className="w-full text-center text-sm text-cyan-200 hover:text-cyan-100 transition"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  Use a different email
                 </button>
-                <p className="mt-1 text-xs text-slate-300">
-                  {touched.password && !passwordValid ? 'Minimum 8 characters required.' : passwordValid ? 'Strong password length.' : 'Use at least 8 characters.'}
-                </p>
-              </div>
-
-              <div>
-                <p className="mb-2 text-xs text-slate-300">OTP Verification (UI only)</p>
-                <div className="grid grid-cols-6 gap-2">
-                  {otp.map((digit, index) => (
-                    <input
-                      key={`otp-login-${index}`}
-                      value={digit}
-                      onChange={(event) => updateOtp(index, event.target.value)}
-                      inputMode="numeric"
-                      maxLength={1}
-                      aria-label={`OTP digit ${index + 1}`}
-                      className="h-10 rounded-lg border border-white/20 bg-white/5 text-center text-sm outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/30"
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <a href="#" className="text-xs text-cyan-200 hover:text-cyan-100">Forgot password?</a>
-                <span className="inline-flex items-center gap-1 text-xs text-slate-300">
-                  <ShieldCheck className="h-3.5 w-3.5 text-cyan-300" />
-                  Enterprise-grade security
-                </span>
-              </div>
-
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                type="submit"
-                disabled={isLoading}
-                className="h-12 w-full rounded-xl bg-gradient-to-r from-cyan-300 to-blue-500 font-semibold text-slate-950 transition hover:from-cyan-200 hover:to-blue-400 disabled:opacity-70"
-              >
-                {isLoading ? 'Signing in...' : 'Sign In'}
-              </motion.button>
-            </form>
+              </form>
+            )}
 
             <div className="my-5 flex items-center gap-3">
               <div className="h-px flex-1 bg-white/10" />
@@ -235,19 +374,11 @@ export default function Login() {
                 whileHover={{ y: -1 }}
                 whileTap={{ scale: 0.98 }}
                 type="button"
+                onClick={signInWithGoogle}
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 text-sm text-white transition hover:bg-white/10"
               >
                 <GoogleMark />
                 Continue with Google
-              </motion.button>
-              <motion.button
-                whileHover={{ y: -1 }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 text-sm text-white transition hover:bg-white/10"
-              >
-                <MicrosoftMark />
-                Continue with Microsoft
               </motion.button>
             </div>
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Search,
@@ -8,6 +9,7 @@ import {
   LogOut,
   Settings,
   HelpCircle,
+  User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -20,10 +22,13 @@ import {
 } from '@/components/ui/DropdownMenu'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useAppStore } from '@/stores/appStore'
+import { useAuthUser } from '@/hooks/useAuthUser'
 
 export function Navbar() {
+  const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
   const { setCommandPaletteOpen, setSearchOpen } = useAppStore()
+  const { profile, loading: profileLoading, signOut } = useAuthUser()
   const [notificationsOpen, setNotificationsOpen] = useState(false)
 
   const notifications = [
@@ -31,6 +36,16 @@ export function Navbar() {
     { id: '2', title: 'Receipt Received', message: 'Laptop shipment from TechCorp received', time: '2h ago', type: 'success' },
     { id: '3', title: 'Delivery Shipped', message: 'Order ORD-001 has been shipped', time: '1d ago', type: 'info' },
   ]
+
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      navigate('/login')
+    } catch (error) {
+      console.error('Logout failed:', error)
+      alert('Logout failed: ' + (error as Error).message)
+    }
+  }
 
   return (
     <nav className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/85 backdrop-blur-xl">
@@ -151,10 +166,27 @@ export function Navbar() {
             <DropdownMenuTrigger asChild>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button variant="ghost" size="icon" className="hover:bg-slate-800 transition-colors">
-                  <motion.div
-                    className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 via-blue-500 to-purple-600 border border-white/20"
-                    whileHover={{ scale: 1.1 }}
-                  />
+                  {profileLoading ? (
+                    <motion.div
+                      className="h-8 w-8 rounded-full bg-slate-700"
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                  ) : profile?.full_name ? (
+                    <motion.div
+                      className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 via-blue-500 to-purple-600 border border-white/20 flex items-center justify-center text-white font-semibold text-sm"
+                      whileHover={{ scale: 1.1 }}
+                    >
+                      {profile.full_name.charAt(0).toUpperCase()}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 via-blue-500 to-purple-600 border border-white/20 flex items-center justify-center"
+                      whileHover={{ scale: 1.1 }}
+                    >
+                      <User className="h-4 w-4 text-white" />
+                    </motion.div>
+                  )}
                 </Button>
               </motion.div>
             </DropdownMenuTrigger>
@@ -164,8 +196,11 @@ export function Navbar() {
                 animate={{ opacity: 1, y: 0 }}
                 className="border-b border-slate-700 px-4 py-3"
               >
-                <div className="text-sm font-medium">John Doe</div>
-                <div className="text-xs text-muted-foreground">Admin User</div>
+                <div className="text-sm font-medium">{profile?.full_name || 'User'}</div>
+                <div className="text-xs text-muted-foreground">{profile?.email || 'Loading...'}</div>
+                {profile?.company_name && (
+                  <div className="text-xs text-muted-foreground/80 mt-1">{profile.company_name}</div>
+                )}
               </motion.div>
               <DropdownMenuSeparator className="bg-slate-700" />
               <DropdownMenuItem className="cursor-pointer gap-2 hover:bg-slate-800">
@@ -177,7 +212,10 @@ export function Navbar() {
                 <span>Help & Support</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-slate-700" />
-              <DropdownMenuItem className="cursor-pointer gap-2 text-destructive hover:bg-destructive/10">
+              <DropdownMenuItem 
+                className="cursor-pointer gap-2 text-destructive hover:bg-destructive/10"
+                onClick={handleLogout}
+              >
                 <LogOut className="h-4 w-4" />
                 <span>Logout</span>
               </DropdownMenuItem>
