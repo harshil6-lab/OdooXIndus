@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { supabase } from '@/services/supabaseClient'
 
 function GoogleMark() {
   return (
@@ -28,6 +29,7 @@ function MicrosoftMark() {
 
 export default function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState('')
@@ -38,16 +40,29 @@ export default function Login() {
   const emailValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email), [email])
   const passwordValid = password.length >= 8
 
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     setTouched({ email: true, password: true })
     if (!emailValid || !passwordValid) return
 
     setIsLoading(true)
-    setTimeout(() => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) throw error
+
+      // Redirect to the page they tried to visit or dashboard
+      const from = (location.state as any)?.from?.pathname || '/dashboard'
+      navigate(from, { replace: true })
+    } catch (error) {
+      console.error('Login failed:', error)
+      alert('Login failed: ' + (error as Error).message)
+    } finally {
       setIsLoading(false)
-      navigate('/dashboard')
-    }, 1600)
+    }
   }
 
   const updateOtp = (index: number, value: string) => {

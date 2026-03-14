@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, Mail, MapPin, User, Warehouse, Users, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { supabase } from '@/services/supabaseClient'
-import { createUserProfile } from '@/services/profileService'
+import { getOrCreateProfile } from '@/services/profileService'
 
 type SignupForm = {
   name: string
@@ -74,14 +74,19 @@ export default function Signup() {
       if (authError) throw authError
       if (!authData.user) throw new Error('No user returned from signup')
 
-      // Create user profile
-      await createUserProfile({
-        id: authData.user.id,
-        email: form.email,
-        full_name: form.name,
-        company_name: form.warehouseName,
-        role: form.role,
-      })
+      // Get or create user profile (safe method that checks if profile exists)
+      const profile = await getOrCreateProfile(authData.user.id, form.email)
+      
+      // Update profile with additional data from form
+      await supabase
+        .from('profiles')
+        .update({
+          full_name: form.name,
+          company_name: form.warehouseName,
+          role: form.role,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', authData.user.id)
 
       // Navigate to dashboard
       navigate('/dashboard')

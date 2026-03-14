@@ -10,6 +10,7 @@ interface UseAuthUserResult {
   loading: boolean
   error: string | null
   refetchProfile: () => Promise<void>
+  signOut: () => Promise<void>
 }
 
 /**
@@ -95,11 +96,23 @@ export function useAuthUser(): UseAuthUserResult {
     }
   }, [user])
 
+  const signOut = useCallback(async () => {
+    try {
+      await supabase.auth.signOut()
+      setUser(null)
+      setProfile(null)
+    } catch (err) {
+      console.error('Error signing out:', err)
+      setError(err instanceof Error ? err.message : 'Failed to sign out')
+    }
+  }, [])
+
   return {
     user,
     profile,
     loading,
     error,
     refetchProfile,
+    signOut,
   }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Search,
@@ -24,9 +25,10 @@ import { useAppStore } from '@/stores/appStore'
 import { useAuthUser } from '@/hooks/useAuthUser'
 
 export function Navbar() {
+  const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
   const { setCommandPaletteOpen, setSearchOpen } = useAppStore()
-  const { profile, loading: profileLoading } = useAuthUser()
+  const { profile, loading: profileLoading, signOut } = useAuthUser()
   const [notificationsOpen, setNotificationsOpen] = useState(false)
 
   const notifications = [
@@ -34,6 +36,16 @@ export function Navbar() {
     { id: '2', title: 'Receipt Received', message: 'Laptop shipment from TechCorp received', time: '2h ago', type: 'success' },
     { id: '3', title: 'Delivery Shipped', message: 'Order ORD-001 has been shipped', time: '1d ago', type: 'info' },
   ]
+
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      navigate('/login')
+    } catch (error) {
+      console.error('Logout failed:', error)
+      alert('Logout failed: ' + (error as Error).message)
+    }
+  }
 
   return (
     <nav className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/85 backdrop-blur-xl">
@@ -200,7 +212,10 @@ export function Navbar() {
                 <span>Help & Support</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-slate-700" />
-              <DropdownMenuItem className="cursor-pointer gap-2 text-destructive hover:bg-destructive/10">
+              <DropdownMenuItem 
+                className="cursor-pointer gap-2 text-destructive hover:bg-destructive/10"
+                onClick={handleLogout}
+              >
                 <LogOut className="h-4 w-4" />
                 <span>Logout</span>
               </DropdownMenuItem>
