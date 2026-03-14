@@ -8,7 +8,6 @@ import {
   LogOut,
   Settings,
   HelpCircle,
-  Command,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -19,13 +18,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/DropdownMenu'
-import { cn } from '@/utils/cn'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useAppStore } from '@/stores/appStore'
 
 export function Navbar() {
   const { theme, setTheme } = useTheme()
-  const { setCommandPaletteOpen, setSearchOpen, searchOpen } = useAppStore()
+  const { setCommandPaletteOpen, setSearchOpen } = useAppStore()
   const [notificationsOpen, setNotificationsOpen] = useState(false)
 
   const notifications = [
@@ -35,19 +33,19 @@ export function Navbar() {
   ]
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-20 border-b border-white/10 bg-background/70 backdrop-blur-xl">
-      <div className="flex h-16 items-center justify-between px-4 lg:px-6">
+    <nav className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/85 backdrop-blur-xl">
+      <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4">
         {/* Left Section - Search */}
-        <div className="flex-1 max-w-md">
-          <div className="relative hidden sm:flex group">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-hover:text-primary/60 transition-colors" />
+        <div className="flex flex-1 justify-center">
+          <div className="relative hidden w-full max-w-xl items-center sm:flex">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors" />
             <Input
-              placeholder="Search products, orders..."
-              className="pl-10 pr-10 bg-white/5 border-white/10 hover:bg-white/8 hover:border-white/20 placeholder:text-muted-foreground/60 transition-all focus:bg-white/10 focus:border-primary/50"
+              placeholder="Search products, warehouses, transfers..."
+              className="h-10 rounded-lg border border-slate-700 bg-slate-900 pl-10 pr-14 text-sm text-slate-100 placeholder:text-slate-400 transition-all focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20"
               onFocus={() => setSearchOpen(true)}
             />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-xs text-muted-foreground group-hover:bg-white/15 transition-colors">
-              <Command className="h-3 w-3" />K
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300">
+              ⌘ K
             </kbd>
           </div>
         </div>
@@ -60,7 +58,7 @@ export function Navbar() {
               variant="ghost"
               size="icon"
               onClick={() => setCommandPaletteOpen(true)}
-              className="sm:hidden hover:bg-white/10 transition-colors"
+              className="sm:hidden hover:bg-slate-800 transition-colors"
             >
               <Search className="h-5 w-5" />
             </Button>
@@ -73,7 +71,7 @@ export function Navbar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="relative hover:bg-white/10 transition-colors"
+                  className="relative hover:bg-slate-800 transition-colors"
                 >
                   <Bell className="h-5 w-5" />
                   <motion.span
@@ -84,14 +82,14 @@ export function Navbar() {
                 </Button>
               </motion.div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 bg-background/95 backdrop-blur-xl border-white/10">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+            <DropdownMenuContent align="end" className="w-80 border-slate-700 bg-slate-900/95 backdrop-blur-xl">
+              <div className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
                 <div className="text-sm font-semibold">Notifications</div>
                 <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 w-6 hover:bg-white/10"
+                    className="h-6 w-6 hover:bg-slate-800"
                     onClick={() => setNotificationsOpen(false)}
                   >
                     ×
@@ -106,7 +104,7 @@ export function Navbar() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.05 }}
                     whileHover={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
-                    className="cursor-pointer border-b border-white/5 px-4 py-3 last:border-b-0 transition-colors group"
+                    className="group cursor-pointer border-b border-slate-800 px-4 py-3 last:border-b-0 transition-colors"
                   >
                     <div className="flex gap-3">
                       <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
@@ -123,9 +121,9 @@ export function Navbar() {
                   </motion.div>
                 ))}
               </div>
-              <DropdownMenuSeparator className="bg-white/10" />
+              <DropdownMenuSeparator className="bg-slate-700" />
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <DropdownMenuItem className="justify-center text-xs hover:bg-white/10 cursor-pointer">
+                <DropdownMenuItem className="cursor-pointer justify-center text-xs hover:bg-slate-800">
                   View all notifications
                 </DropdownMenuItem>
               </motion.div>
@@ -138,7 +136,7 @@ export function Navbar() {
               variant="ghost"
               size="icon"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="hover:bg-white/10 transition-colors"
+              className="hover:bg-slate-800 transition-colors"
             >
               {theme === 'dark' ? (
                 <Sun className="h-5 w-5" />
@@ -152,7 +150,7 @@ export function Navbar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button variant="ghost" size="icon" className="hover:bg-white/10 transition-colors">
+                <Button variant="ghost" size="icon" className="hover:bg-slate-800 transition-colors">
                   <motion.div
                     className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 via-blue-500 to-purple-600 border border-white/20"
                     whileHover={{ scale: 1.1 }}
@@ -160,26 +158,26 @@ export function Navbar() {
                 </Button>
               </motion.div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-background/95 backdrop-blur-xl border-white/10">
+            <DropdownMenuContent align="end" className="border-slate-700 bg-slate-900/95 backdrop-blur-xl">
               <motion.div
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="px-4 py-3 border-b border-white/10"
+                className="border-b border-slate-700 px-4 py-3"
               >
                 <div className="text-sm font-medium">John Doe</div>
                 <div className="text-xs text-muted-foreground">Admin User</div>
               </motion.div>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem className="gap-2 hover:bg-white/10 cursor-pointer">
+              <DropdownMenuSeparator className="bg-slate-700" />
+              <DropdownMenuItem className="cursor-pointer gap-2 hover:bg-slate-800">
                 <Settings className="h-4 w-4" />
                 <span>Account Settings</span>
               </DropdownMenuItem>
-              <DropdownMenuItem className="gap-2 hover:bg-white/10 cursor-pointer">
+              <DropdownMenuItem className="cursor-pointer gap-2 hover:bg-slate-800">
                 <HelpCircle className="h-4 w-4" />
                 <span>Help & Support</span>
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem className="gap-2 text-destructive hover:bg-destructive/10 cursor-pointer">
+              <DropdownMenuSeparator className="bg-slate-700" />
+              <DropdownMenuItem className="cursor-pointer gap-2 text-destructive hover:bg-destructive/10">
                 <LogOut className="h-4 w-4" />
                 <span>Logout</span>
               </DropdownMenuItem>

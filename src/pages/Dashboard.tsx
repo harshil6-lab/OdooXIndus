@@ -1,5 +1,6 @@
-import { motion } from 'framer-motion'
-import { TrendingUp, AlertCircle, Clock, Truck, Code2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { TrendingUp, AlertCircle, Clock, Truck, Code2, Plus, FilePlus2, ArrowRightLeft } from 'lucide-react'
 import {
   LineChart,
   Line,
@@ -133,6 +134,13 @@ const KPICard = ({
 
 export default function Dashboard() {
   const { products, receipts, warehouses } = useInventoryStore()
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 2200)
+    return () => clearTimeout(timer)
+  }, [toast])
 
   const stats = [
     {
@@ -166,16 +174,63 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, x: 30 }}
+            animate={{ opacity: 1, y: 0, x: 0 }}
+            exit={{ opacity: 0, y: -8, x: 20 }}
+            className="fixed right-4 top-16 z-40 rounded-lg border border-blue-400/40 bg-slate-900/95 px-4 py-2 text-sm text-slate-100 shadow-xl backdrop-blur"
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back! Here's your inventory overview.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Welcome back! Here's your inventory overview.</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <Button
+                onClick={() => setToast('Opening Add Product...')}
+                className="group gap-2 bg-blue-600 hover:bg-blue-500"
+              >
+                <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+                Add Product
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <Button
+                variant="outline"
+                onClick={() => setToast('Opening Create Receipt...')}
+                className="group gap-2 border-slate-700 bg-slate-900/70 hover:bg-slate-800"
+              >
+                <FilePlus2 className="h-4 w-4 transition-transform group-hover:scale-110" />
+                Create Receipt
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <Button
+                variant="outline"
+                onClick={() => setToast('Opening Transfer Stock...')}
+                className="group gap-2 border-slate-700 bg-slate-900/70 hover:bg-slate-800"
+              >
+                <ArrowRightLeft className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                Transfer Stock
+              </Button>
+            </motion.div>
+          </div>
         </div>
       </motion.div>
 

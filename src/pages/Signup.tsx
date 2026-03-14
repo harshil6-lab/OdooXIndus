@@ -1,399 +1,375 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowLeft, CheckCircle2, Mail, MapPin, User, Warehouse, Users, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import {
-  Eye,
-  EyeOff,
-  ArrowLeft,
-  Mail,
-  Lock,
-  User,
-  Building2,
-  CheckCircle2,
-} from 'lucide-react'
+
+type SignupForm = {
+  name: string
+  email: string
+  password: string
+  warehouseName: string
+  location: string
+  industry: string
+  invites: string
+  role: string
+}
 
 export default function Signup() {
+  const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const [form, setForm] = useState<SignupForm>({
+    name: '',
+    email: '',
+    password: '',
+    warehouseName: '',
+    location: '',
+    industry: '',
+    invites: '',
+    role: '',
+  })
 
-  const handleNext = (e?: React.FormEvent) => {
-    e?.preventDefault()
-    if (step < 3) {
-      setStep(step + 1)
+  const emailValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email), [form.email])
+  const passwordValid = form.password.length >= 8
+
+  const stepValid = () => {
+    if (step === 1) return form.name.trim().length >= 2 && emailValid && passwordValid
+    if (step === 2) return form.warehouseName.trim().length >= 2 && form.location.trim().length >= 2 && !!form.industry
+    if (step === 3) return !!form.role
+    return false
+  }
+
+  const setField = (key: keyof SignupForm, value: string) => {
+    setForm((previous) => ({ ...previous, [key]: value }))
+  }
+
+  const next = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!stepValid()) {
+      if (step === 1) setTouched((old) => ({ ...old, name: true, email: true, password: true }))
+      if (step === 2) setTouched((old) => ({ ...old, warehouseName: true, location: true, industry: true }))
+      if (step === 3) setTouched((old) => ({ ...old, role: true }))
+      return
     }
+    setStep((old) => Math.min(old + 1, 3))
   }
 
-  const handleBack = () => {
-    if (step > 1) {
-      setStep(step - 1)
-    }
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!stepValid()) return
+    setLoading(true)
+    setTimeout(() => {
+      setLoading(false)
+      navigate('/dashboard')
+    }, 1600)
   }
 
-  const containerVariants = {
-    initial: { opacity: 0 },
-    animate: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1, delayChildren: 0.2 },
-    },
-  }
-
-  const itemVariants = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-  }
+  const progress = (step / 3) * 100
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4 relative overflow-hidden">
-      {/* Animated background gradient */}
-      <motion.div
-        className="absolute inset-0"
-        animate={{
-          background: [
-            'radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%)',
-            'radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 50%)',
-            'radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%)',
-          ],
-        }}
-        transition={{ duration: 8, repeat: Infinity }}
-      />
-
-      {/* Back button */}
-      <Link to="/" className="absolute top-6 left-6 z-10">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-950 via-[#0d1835] to-slate-950 text-white">
+      <div className="pointer-events-none absolute inset-0">
         <motion.div
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/10 border border-white/20"
-          >
+          className="absolute -top-20 -left-20 h-96 w-96 rounded-full bg-cyan-400/20 blur-3xl"
+          animate={{ x: [0, 40, 0], y: [0, 30, 0] }}
+          transition={{ duration: 9, repeat: Infinity }}
+        />
+        <motion.div
+          className="absolute bottom-0 right-0 h-[28rem] w-[28rem] rounded-full bg-blue-500/20 blur-3xl"
+          animate={{ x: [0, -40, 0], y: [0, -24, 0] }}
+          transition={{ duration: 11, repeat: Infinity }}
+        />
+      </div>
+
+      <Link to="/landing" className="absolute left-4 top-4 z-20 sm:left-6 sm:top-6">
+        <motion.div whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.95 }}>
+          <Button variant="ghost" size="icon" className="border border-white/20 bg-white/5 text-white hover:bg-white/10">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </motion.div>
       </Link>
 
-      <motion.div
-        className="w-full max-w-md relative z-10"
-        variants={containerVariants}
-        initial="initial"
-        animate="animate"
-      >
-        {/* Glassmorphic Card */}
-        <motion.div
-          className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-8 shadow-2xl"
-          initial={{ scale: 0.95 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', stiffness: 100 }}
+      <div className="relative z-10 mx-auto grid min-h-screen w-full max-w-7xl grid-cols-1 items-center gap-8 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:px-8">
+        <motion.section
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6 }}
+          className="hidden lg:block"
         >
-          {/* Logo */}
-          <motion.div variants={itemVariants} className="flex justify-center mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center">
-              <span className="text-xl font-bold text-white">CI</span>
-            </div>
-          </motion.div>
+          <p className="inline-flex rounded-full border border-cyan-200/20 bg-cyan-200/10 px-4 py-1.5 text-xs text-cyan-100">
+            Three-step onboarding
+          </p>
+          <h1 className="mt-5 text-5xl font-semibold leading-tight">Launch warehouse operations in minutes</h1>
+          <p className="mt-4 max-w-xl text-slate-300">
+            Configure your facility, invite your team, and start tracking inventory flows with enterprise controls.
+          </p>
+          <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-xl">
+            <p className="text-sm text-slate-300">Trusted by 500+ warehouses and growing logistics teams.</p>
+          </div>
+        </motion.section>
 
-          {/* Progress indicator */}
-          <motion.div variants={itemVariants} className="mb-8">
-            <div className="flex justify-between items-center mb-2">
-              <h1 className="text-2xl font-bold text-white">Create Account</h1>
-              <span className="text-sm text-gray-400">
-                Step {step} of 3
-              </span>
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="mx-auto w-full max-w-md"
+        >
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+            <div className="mb-6 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-300 to-blue-500 text-sm font-bold text-slate-950">
+                CI
+              </div>
+              <h2 className="mt-4 text-2xl font-semibold">Create your account</h2>
+              <p className="mt-1 text-sm text-slate-300">Step {step} of 3</p>
             </div>
-            <div className="flex gap-2 mt-4">
-              {[1, 2, 3].map((i) => (
+
+            <div className="mb-6">
+              <div className="mb-2 flex items-center justify-between text-xs text-slate-300">
+                <span>{step === 1 ? 'User Details' : step === 2 ? 'Warehouse Setup' : 'Team Setup'}</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-white/10">
                 <motion.div
-                  key={i}
-                  className="flex-1 h-1 rounded-full bg-white/10"
-                  animate={{
-                    backgroundColor: i <= step ? '#3b82f6' : 'rgba(255,255,255,0.1)',
-                  }}
+                  className="h-2 rounded-full bg-gradient-to-r from-cyan-300 to-blue-500"
+                  initial={{ width: '0%' }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.35 }}
                 />
-              ))}
+              </div>
             </div>
-          </motion.div>
 
-          {/* Step 1: Account Info */}
-          {step === 1 && (
-            <motion.form
-              onSubmit={handleNext}
-              className="space-y-4"
-              key="step1"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <p className="text-gray-400 text-sm mb-6">
-                Let's start with your basic information
-              </p>
-
-              <motion.div variants={itemVariants}>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Full Name
-                </label>
+            {step === 1 && (
+              <form onSubmit={next} className="space-y-4">
                 <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400" />
-                  <Input
+                  <input
+                    id="signupName"
                     type="text"
-                    placeholder="John Doe"
-                    className="pl-12 bg-white/5 border-white/20 text-white placeholder:text-gray-500"
-                    required
+                    value={form.name}
+                    onChange={(e) => setField('name', e.target.value)}
+                    onBlur={() => setTouched((old) => ({ ...old, name: true }))}
+                    placeholder=" "
+                    className={`peer h-12 w-full rounded-xl border bg-white/5 px-11 pt-4 text-sm text-white outline-none transition-all placeholder:text-transparent focus:ring-2 ${
+                      touched.name && form.name.trim().length < 2
+                        ? 'border-red-400/80 focus:ring-red-300/40'
+                        : form.name.trim().length >= 2 && touched.name
+                          ? 'border-emerald-400/70 focus:ring-emerald-300/40'
+                          : 'border-white/20 focus:border-cyan-300/70 focus:ring-cyan-300/30'
+                    }`}
                   />
+                  <User className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-300" />
+                  <label htmlFor="signupName" className="pointer-events-none absolute left-10 top-3.5 text-sm text-slate-300 transition-all peer-focus:top-1.5 peer-focus:text-[11px] peer-[:not(:placeholder-shown)]:top-1.5 peer-[:not(:placeholder-shown)]:text-[11px]">
+                    Name
+                  </label>
+                  <p className="mt-1 text-xs text-slate-300">
+                    {touched.name && form.name.trim().length < 2 ? 'Enter at least 2 characters.' : form.name.trim().length >= 2 ? 'Looks good.' : 'Your full name.'}
+                  </p>
                 </div>
-              </motion.div>
 
-              <motion.div variants={itemVariants}>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Email Address
-                </label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400" />
-                  <Input
+                  <input
+                    id="signupEmail"
                     type="email"
-                    placeholder="your@email.com"
-                    className="pl-12 bg-white/5 border-white/20 text-white placeholder:text-gray-500"
-                    required
+                    value={form.email}
+                    onChange={(e) => setField('email', e.target.value)}
+                    onBlur={() => setTouched((old) => ({ ...old, email: true }))}
+                    placeholder=" "
+                    className={`peer h-12 w-full rounded-xl border bg-white/5 px-11 pt-4 text-sm text-white outline-none transition-all placeholder:text-transparent focus:ring-2 ${
+                      touched.email && !emailValid
+                        ? 'border-red-400/80 focus:ring-red-300/40'
+                        : emailValid && touched.email
+                          ? 'border-emerald-400/70 focus:ring-emerald-300/40'
+                          : 'border-white/20 focus:border-cyan-300/70 focus:ring-cyan-300/30'
+                    }`}
                   />
+                  <Mail className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-300" />
+                  <label htmlFor="signupEmail" className="pointer-events-none absolute left-10 top-3.5 text-sm text-slate-300 transition-all peer-focus:top-1.5 peer-focus:text-[11px] peer-[:not(:placeholder-shown)]:top-1.5 peer-[:not(:placeholder-shown)]:text-[11px]">
+                    Email Address
+                  </label>
+                  <p className="mt-1 text-xs text-slate-300">
+                    {touched.email && !emailValid ? 'Enter a valid email.' : emailValid ? 'Valid email format.' : 'Use your work email.'}
+                  </p>
                 </div>
-              </motion.div>
 
-              <motion.div variants={itemVariants} className="pt-4">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all"
-                >
-                  Continue
-                </motion.button>
-              </motion.div>
-            </motion.form>
-          )}
-
-          {/* Step 2: Company Info */}
-          {step === 2 && (
-            <motion.form
-              onSubmit={handleNext}
-              className="space-y-4"
-              key="step2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <p className="text-gray-400 text-sm mb-6">
-                Tell us about your warehouse
-              </p>
-
-              <motion.div variants={itemVariants}>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Company Name
-                </label>
                 <div className="relative">
-                  <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400" />
-                  <Input
-                    type="text"
-                    placeholder="Your Company"
-                    className="pl-12 bg-white/5 border-white/20 text-white placeholder:text-gray-500"
-                    required
-                  />
-                </div>
-              </motion.div>
-
-              <motion.div variants={itemVariants}>
-                <label htmlFor="industry" className="block text-sm font-medium text-white mb-2">
-                  Industry
-                </label>
-                <select
-                  id="industry"
-                  aria-label="Select industry"
-                  title="Select industry"
-                  className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/20 text-white hover:bg-white/10 transition-colors focus:outline-none focus:border-blue-400/50"
-                >
-                  <option className="bg-slate-900">Manufacturing</option>
-                  <option className="bg-slate-900">Logistics</option>
-                  <option className="bg-slate-900">E-commerce</option>
-                  <option className="bg-slate-900">Retail</option>
-                  <option className="bg-slate-900">Other</option>
-                </select>
-              </motion.div>
-
-              <motion.div
-                variants={itemVariants}
-                className="flex gap-3 pt-4"
-              >
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="button"
-                  onClick={handleBack}
-                  className="flex-1 border border-white/20 hover:bg-white/10 text-white font-semibold py-3 rounded-lg transition-all"
-                >
-                  Back
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all"
-                >
-                  Continue
-                </motion.button>
-              </motion.div>
-            </motion.form>
-          )}
-
-          {/* Step 3: Password */}
-          {step === 3 && (
-            <motion.form
-              onSubmit={(e) => {
-                e.preventDefault()
-                setIsLoading(true)
-                setTimeout(() => setIsLoading(false), 2000)
-              }}
-              className="space-y-4"
-              key="step3"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <p className="text-gray-400 text-sm mb-6">
-                Secure your account with a strong password
-              </p>
-
-              <motion.div variants={itemVariants}>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400" />
-                  <Input
+                  <input
+                    id="signupPassword"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    className="pl-12 pr-12 bg-white/5 border-white/20 text-white placeholder:text-gray-500"
-                    required
+                    value={form.password}
+                    onChange={(e) => setField('password', e.target.value)}
+                    onBlur={() => setTouched((old) => ({ ...old, password: true }))}
+                    placeholder=" "
+                    className={`peer h-12 w-full rounded-xl border bg-white/5 px-11 pr-12 pt-4 text-sm text-white outline-none transition-all placeholder:text-transparent focus:ring-2 ${
+                      touched.password && !passwordValid
+                        ? 'border-red-400/80 focus:ring-red-300/40'
+                        : passwordValid && touched.password
+                          ? 'border-emerald-400/70 focus:ring-emerald-300/40'
+                          : 'border-white/20 focus:border-cyan-300/70 focus:ring-cyan-300/30'
+                    }`}
                   />
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
+                  <Eye className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-300 opacity-0" />
+                  <label htmlFor="signupPassword" className="pointer-events-none absolute left-10 top-3.5 text-sm text-slate-300 transition-all peer-focus:top-1.5 peer-focus:text-[11px] peer-[:not(:placeholder-shown)]:top-1.5 peer-[:not(:placeholder-shown)]:text-[11px]">
+                    Password
+                  </label>
+                  <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-400"
+                    onClick={() => setShowPassword((old) => !old)}
+                    className="absolute right-3 top-3 rounded-md p-1 text-slate-300 transition hover:bg-white/10 hover:text-white"
+                    aria-label="Toggle password visibility"
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                  <p className="mt-1 text-xs text-slate-300">
+                    {touched.password && !passwordValid ? 'Minimum 8 characters required.' : passwordValid ? 'Strong enough.' : 'Create a secure password.'}
+                  </p>
+                </div>
+
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" className="h-12 w-full rounded-xl bg-gradient-to-r from-cyan-300 to-blue-500 font-semibold text-slate-950">
+                  Continue
+                </motion.button>
+              </form>
+            )}
+
+            {step === 2 && (
+              <form onSubmit={next} className="space-y-4">
+                <div className="relative">
+                  <input
+                    id="warehouseName"
+                    type="text"
+                    value={form.warehouseName}
+                    onChange={(e) => setField('warehouseName', e.target.value)}
+                    onBlur={() => setTouched((old) => ({ ...old, warehouseName: true }))}
+                    placeholder=" "
+                    className="peer h-12 w-full rounded-xl border border-white/20 bg-white/5 px-11 pt-4 text-sm text-white outline-none transition-all placeholder:text-transparent focus:border-cyan-300/70 focus:ring-2 focus:ring-cyan-300/30"
+                  />
+                  <Warehouse className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-300" />
+                  <label htmlFor="warehouseName" className="pointer-events-none absolute left-10 top-3.5 text-sm text-slate-300 transition-all peer-focus:top-1.5 peer-focus:text-[11px] peer-[:not(:placeholder-shown)]:top-1.5 peer-[:not(:placeholder-shown)]:text-[11px]">
+                    Warehouse Name
+                  </label>
+                  <p className="mt-1 text-xs text-slate-300">
+                    {touched.warehouseName && form.warehouseName.trim().length < 2 ? 'Please enter warehouse name.' : 'Primary facility name.'}
+                  </p>
+                </div>
+
+                <div className="relative">
+                  <input
+                    id="location"
+                    type="text"
+                    value={form.location}
+                    onChange={(e) => setField('location', e.target.value)}
+                    onBlur={() => setTouched((old) => ({ ...old, location: true }))}
+                    placeholder=" "
+                    className="peer h-12 w-full rounded-xl border border-white/20 bg-white/5 px-11 pt-4 text-sm text-white outline-none transition-all placeholder:text-transparent focus:border-cyan-300/70 focus:ring-2 focus:ring-cyan-300/30"
+                  />
+                  <MapPin className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-300" />
+                  <label htmlFor="location" className="pointer-events-none absolute left-10 top-3.5 text-sm text-slate-300 transition-all peer-focus:top-1.5 peer-focus:text-[11px] peer-[:not(:placeholder-shown)]:top-1.5 peer-[:not(:placeholder-shown)]:text-[11px]">
+                    Location
+                  </label>
+                  <p className="mt-1 text-xs text-slate-300">
+                    {touched.location && form.location.trim().length < 2 ? 'Please enter location.' : 'City, region, or site code.'}
+                  </p>
+                </div>
+
+                <div>
+                  <label htmlFor="industry" className="mb-1 block text-xs text-slate-300">Industry Type</label>
+                  <select
+                    id="industry"
+                    value={form.industry}
+                    onChange={(e) => setField('industry', e.target.value)}
+                    onBlur={() => setTouched((old) => ({ ...old, industry: true }))}
+                    className={`h-12 w-full rounded-xl border bg-white/5 px-3 text-sm text-white outline-none transition-all focus:ring-2 ${
+                      touched.industry && !form.industry ? 'border-red-400/80 focus:ring-red-300/40' : 'border-white/20 focus:border-cyan-300/70 focus:ring-cyan-300/30'
+                    }`}
+                    aria-label="Industry Type"
+                    title="Industry Type"
+                  >
+                    <option value="" className="bg-slate-900">Select Industry</option>
+                    <option value="logistics" className="bg-slate-900">Logistics</option>
+                    <option value="manufacturing" className="bg-slate-900">Manufacturing</option>
+                    <option value="retail" className="bg-slate-900">Retail</option>
+                    <option value="ecommerce" className="bg-slate-900">E-commerce</option>
+                  </select>
+                  <p className="mt-1 text-xs text-slate-300">
+                    {touched.industry && !form.industry ? 'Please select industry type.' : 'Used to configure smart defaults.'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" onClick={() => setStep(1)} className="h-12 rounded-xl border border-white/20 bg-white/5 text-sm text-white">
+                    Back
+                  </motion.button>
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" className="h-12 rounded-xl bg-gradient-to-r from-cyan-300 to-blue-500 text-sm font-semibold text-slate-950">
+                    Continue
                   </motion.button>
                 </div>
-              </motion.div>
+              </form>
+            )}
 
-              <motion.div variants={itemVariants}>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Confirm Password
-                </label>
+            {step === 3 && (
+              <form onSubmit={submit} className="space-y-4">
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400" />
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    className="pl-12 pr-12 bg-white/5 border-white/20 text-white placeholder:text-gray-500"
-                    required
+                  <textarea
+                    id="invites"
+                    value={form.invites}
+                    onChange={(e) => setField('invites', e.target.value)}
+                    placeholder="alex@company.com, jordan@company.com"
+                    className="h-24 w-full resize-none rounded-xl border border-white/20 bg-white/5 p-3 text-sm text-white outline-none transition-all focus:border-cyan-300/70 focus:ring-2 focus:ring-cyan-300/30"
                   />
+                  <label htmlFor="invites" className="mb-1 block text-xs text-slate-300">Invite Team Members</label>
+                  <p className="mt-1 text-xs text-slate-300">Optional: add emails separated by commas.</p>
                 </div>
-              </motion.div>
 
-              {/* Terms */}
-              <motion.div
-                variants={itemVariants}
-                className="flex items-start gap-3 text-sm"
-              >
-                <input
-                  id="termsAccepted"
-                  type="checkbox"
-                  aria-label="Accept terms and privacy policy"
-                  title="Accept terms and privacy policy"
-                  className="mt-1 w-4 h-4 rounded border-white/20 bg-white/5"
-                  required
-                />
-                <label htmlFor="termsAccepted" className="text-gray-400">
-                  I agree to the{' '}
-                  <a href="#" className="text-blue-400 hover:text-blue-300">
-                    Terms of Service
-                  </a>{' '}
-                  and{' '}
-                  <a href="#" className="text-blue-400 hover:text-blue-300">
-                    Privacy Policy
-                  </a>
-                </label>
-              </motion.div>
+                <div>
+                  <label htmlFor="role" className="mb-1 block text-xs text-slate-300">Role Selection</label>
+                  <div className="relative">
+                    <Users className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-300" />
+                    <select
+                      id="role"
+                      value={form.role}
+                      onChange={(e) => setField('role', e.target.value)}
+                      onBlur={() => setTouched((old) => ({ ...old, role: true }))}
+                      className={`h-12 w-full rounded-xl border bg-white/5 pl-10 pr-3 text-sm text-white outline-none transition-all focus:ring-2 ${
+                        touched.role && !form.role ? 'border-red-400/80 focus:ring-red-300/40' : 'border-white/20 focus:border-cyan-300/70 focus:ring-cyan-300/30'
+                      }`}
+                      aria-label="Role Selection"
+                      title="Role Selection"
+                    >
+                      <option value="" className="bg-slate-900">Select Role</option>
+                      <option value="inventory-manager" className="bg-slate-900">Inventory Manager</option>
+                      <option value="warehouse-admin" className="bg-slate-900">Warehouse Admin</option>
+                      <option value="operator" className="bg-slate-900">Warehouse Operator</option>
+                    </select>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-300">
+                    {touched.role && !form.role ? 'Please choose a role.' : 'Default role for your account.'}
+                  </p>
+                </div>
 
-              <motion.div
-                variants={itemVariants}
-                className="flex gap-3 pt-4"
-              >
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="button"
-                  onClick={handleBack}
-                  className="flex-1 border border-white/20 hover:bg-white/10 text-white font-semibold py-3 rounded-lg transition-all"
-                >
-                  Back
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-blue-500/50 disabled:to-blue-600/50 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
-                >
-                  {isLoading ? (
-                    <>
-                      <motion.div
-                        className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity }}
-                      />
-                      Creating account...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="h-5 w-5" />
-                      Create Account
-                    </>
-                  )}
-                </motion.button>
-              </motion.div>
-            </motion.form>
-          )}
+                <div className="grid grid-cols-2 gap-3">
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="button" onClick={() => setStep(2)} className="h-12 rounded-xl border border-white/20 bg-white/5 text-sm text-white">
+                    Back
+                  </motion.button>
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={loading} className="h-12 rounded-xl bg-gradient-to-r from-cyan-300 to-blue-500 text-sm font-semibold text-slate-950 disabled:opacity-70">
+                    {loading ? 'Creating account...' : 'Create Account'}
+                  </motion.button>
+                </div>
+              </form>
+            )}
 
-          {/* Sign in link */}
-          <motion.div variants={itemVariants} className="text-center mt-6 pt-6 border-t border-white/10">
-            <p className="text-gray-400">
+            <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-slate-300">
               Already have an account?{' '}
-              <Link
-                to="/login"
-                className="text-blue-400 hover:text-blue-300 font-semibold transition-colors"
-              >
-                Sign in
-              </Link>
-            </p>
-          </motion.div>
-        </motion.div>
+              <Link to="/login" className="font-medium text-cyan-200 hover:text-cyan-100">Sign in</Link>
+            </div>
 
-        {/* Security info */}
-        <motion.p
-          variants={itemVariants}
-          className="text-center text-sm text-gray-500 mt-6"
-        >
-          🔒 Enterprise-grade security
-        </motion.p>
-      </motion.div>
+            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-300">
+              <CheckCircle2 className="h-3.5 w-3.5 text-cyan-300" />
+              Enterprise-grade security
+            </div>
+          </div>
+        </motion.section>
+      </div>
     </div>
   )
 }
