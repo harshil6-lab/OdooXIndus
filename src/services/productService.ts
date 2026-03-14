@@ -61,9 +61,23 @@ export async function updateProduct(
 ): Promise<Product> {
   const user = await getCurrentUser()
 
+  // Only include defined fields to avoid sending undefined to Supabase
+  const payload: Record<string, unknown> = {}
+  if (product.name !== undefined) payload.name = product.name
+  if (product.sku !== undefined) payload.sku = product.sku
+  if (product.category !== undefined) payload.category = product.category
+  if (product.stock !== undefined) payload.stock = product.stock
+  if (product.reorder_level !== undefined) payload.reorder_level = product.reorder_level
+  if (product.price !== undefined) payload.price = product.price
+  if (product.warehouse_id !== undefined) payload.warehouse_id = product.warehouse_id
+
+  if (Object.keys(payload).length === 0) {
+    throw new Error('No fields to update.')
+  }
+
   const { data, error } = await supabase
     .from('products')
-    .update(product)
+    .update(payload)
     .eq('id', id)
     .eq('user_id', user.id)
     .select('*')

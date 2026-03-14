@@ -18,6 +18,7 @@ import {
   Menu,
   X,
 } from 'lucide-react'
+import { useAuthUser } from '@/hooks/useAuthUser'
 import { cn } from '@/utils/cn'
 import { useAppStore } from '@/stores/appStore'
 
@@ -102,8 +103,11 @@ const navigationItems: NavItem[] = [
 export function Sidebar() {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['operations']))
   const { sidebarOpen, setSidebarOpen } = useAppStore()
+  const { profile, user } = useAuthUser()
   const location = useLocation()
   const desktopWidth = sidebarOpen ? 260 : 72
+  const displayName = profile?.full_name || user?.email || 'Account'
+  const displayRole = profile?.role || 'User'
 
   const toggleExpand = (id: string) => {
     setExpandedItems((prev) => {
@@ -269,8 +273,8 @@ export function Sidebar() {
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-300 to-blue-500" />
             {sidebarOpen && (
               <div className="text-sm leading-tight">
-                <div className="font-medium text-slate-100">John Doe</div>
-                <div className="text-xs text-slate-400">Admin</div>
+                <div className="font-medium text-slate-100">{displayName}</div>
+                <div className="text-xs text-slate-400">{displayRole}</div>
               </div>
             )}
           </button>
@@ -322,8 +326,8 @@ export function Sidebar() {
                 <button className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-slate-800">
                   <div className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-300 to-blue-500" />
                   <div className="text-sm leading-tight">
-                    <div className="font-medium text-slate-100">John Doe</div>
-                    <div className="text-xs text-slate-400">Admin</div>
+                    <div className="font-medium text-slate-100">{displayName}</div>
+                    <div className="text-xs text-slate-400">{displayRole}</div>
                   </div>
                 </button>
               </div>

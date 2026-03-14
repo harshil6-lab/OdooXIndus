@@ -38,7 +38,6 @@ export async function createWarehouse(input: CreateWarehouseInput): Promise<Ware
     user_id: user.id,
     name: input.name,
     location: input.location ?? null,
-    capacity: input.capacity ?? null,
   }
 
   const { data, error } = await supabase
@@ -61,9 +60,17 @@ export async function updateWarehouse(
 ): Promise<Warehouse> {
   const user = await getCurrentUser()
 
+  const payload: Record<string, unknown> = {}
+  if (input.name !== undefined) payload.name = input.name
+  if (input.location !== undefined) payload.location = input.location
+
+  if (Object.keys(payload).length === 0) {
+    throw new Error('No fields to update.')
+  }
+
   const { data, error } = await supabase
     .from('warehouses')
-    .update(input)
+    .update(payload)
     .eq('id', id)
     .eq('user_id', user.id)
     .select('*')

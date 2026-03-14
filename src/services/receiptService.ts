@@ -47,8 +47,6 @@ export async function createReceipt(input: CreateReceiptInput): Promise<ReceiptR
       product_id: input.productId,
       warehouse_id: input.warehouseId ?? null,
       quantity: input.quantity,
-      supplier: input.supplier ?? null,
-      reference: input.reference ?? null,
       note: input.note ?? null,
     })
     .select('*')
