@@ -2,6 +2,11 @@ import { supabase } from '@/services/supabaseClient'
 import { getCurrentUser } from '@/services/profileService'
 import { Warehouse } from '@/types/inventory'
 
+export interface GetWarehousesOptions {
+  page?: number
+  pageSize?: number
+}
+
 export interface CreateWarehouseInput {
   name: string
   location?: string | null
@@ -14,14 +19,19 @@ export interface UpdateWarehouseInput {
   capacity?: number | null
 }
 
-export async function getWarehouses(): Promise<Warehouse[]> {
+export async function getWarehouses(options: GetWarehousesOptions = {}): Promise<Warehouse[]> {
   const user = await getCurrentUser()
+  const page = options.page ?? 0
+  const pageSize = options.pageSize ?? 50
+  const from = page * pageSize
+  const to = from + pageSize - 1
   
   const { data, error } = await supabase
     .from('warehouses')
     .select('*')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
+    .range(from, to)
 
   if (error) {
     console.error(error)
@@ -29,6 +39,22 @@ export async function getWarehouses(): Promise<Warehouse[]> {
   }
 
   return (data ?? []) as Warehouse[]
+}
+
+export async function getWarehousesCount(): Promise<number> {
+  const user = await getCurrentUser()
+
+  const { count, error } = await supabase
+    .from('warehouses')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error(error)
+    throw new Error(error.message)
+  }
+
+  return count ?? 0
 }
 
 export async function createWarehouse(input: CreateWarehouseInput): Promise<Warehouse> {

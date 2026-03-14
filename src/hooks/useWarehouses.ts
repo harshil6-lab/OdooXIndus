@@ -19,6 +19,13 @@ interface UseWarehousesResult {
   removeWarehouse: (id: string) => Promise<boolean>
 }
 
+const WAREHOUSES_CACHE_TTL_MS = 30_000
+
+let warehousesCache: {
+  items: Warehouse[]
+  fetchedAt: number
+} | null = null
+
 export function useWarehouses(): UseWarehousesResult {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState<boolean>(false)
@@ -29,8 +36,12 @@ export function useWarehouses(): UseWarehousesResult {
     setError(null)
 
     try {
-      const data = await getWarehouses()
+      const data = await getWarehouses({ page: 0, pageSize: 50 })
       setWarehouses(data)
+      warehousesCache = {
+        items: data,
+        fetchedAt: Date.now(),
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch warehouses.')
     } finally {
@@ -44,6 +55,7 @@ export function useWarehouses(): UseWarehousesResult {
     try {
       const created = await createWarehouse(input)
       setWarehouses((prev) => [created, ...prev])
+      warehousesCache = null
       return created
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create warehouse.')
@@ -57,6 +69,7 @@ export function useWarehouses(): UseWarehousesResult {
     try {
       const updated = await updateWarehouse(id, input)
       setWarehouses((prev) => prev.map((w) => (w.id === id ? updated : w)))
+      warehousesCache = null
       return updated
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update warehouse.')
@@ -70,6 +83,7 @@ export function useWarehouses(): UseWarehousesResult {
     try {
       await deleteWarehouse(id)
       setWarehouses((prev) => prev.filter((w) => w.id !== id))
+      warehousesCache = null
       return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete warehouse.')
@@ -78,6 +92,11 @@ export function useWarehouses(): UseWarehousesResult {
   }, [])
 
   useEffect(() => {
+    if (warehousesCache && Date.now() - warehousesCache.fetchedAt < WAREHOUSES_CACHE_TTL_MS) {
+      setWarehouses(warehousesCache.items)
+      return
+    }
+
     void fetchWarehouses()
   }, [fetchWarehouses])
 

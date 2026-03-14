@@ -22,16 +22,13 @@ import {
 } from '@/components/ui/Dialog'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { usePaginatedTable } from '@/hooks/usePaginatedTable'
 import { useInventory } from '@/hooks/useInventory'
-import { getCurrentUser } from '@/services/profileService'
-import { supabase } from '@/services/supabaseClient'
 import { Delivery } from '@/types/inventory'
 
 export default function DeliveryOrders() {
-  const { products, submitDelivery, loading: inventoryLoading } = useInventory()
-  const [deliveries, setDeliveries] = useState<Delivery[]>([])
-  const [loadingDeliveries, setLoadingDeliveries] = useState(false)
-  const [fetchError, setFetchError] = useState<string | null>(null)
+  const { products, submitDelivery, loading: inventoryLoading } = useInventory({ includeWarehouses: false, includeLedger: false, productPageSize: 100 })
+  const { items: deliveries, loading: loadingDeliveries, error: fetchError, refresh: fetchDeliveries } = usePaginatedTable<Delivery>('deliveries')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null)
@@ -44,30 +41,6 @@ export default function DeliveryOrders() {
     reference: '',
     note: '',
   })
-
-  const fetchDeliveries = async () => {
-    setLoadingDeliveries(true)
-    try {
-      const user = await getCurrentUser()
-      const { data, error } = await supabase
-        .from('deliveries')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setDeliveries(data || [])
-    } catch (err) {
-      console.error('Failed to fetch deliveries:', err)
-      setFetchError((err as Error).message)
-    } finally {
-      setLoadingDeliveries(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchDeliveries()
-  }, [])
 
   const handleSubmitDelivery = async () => {
     if (!formData.productId || !formData.quantity) {

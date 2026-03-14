@@ -22,16 +22,13 @@ import {
 } from '@/components/ui/Dialog'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { usePaginatedTable } from '@/hooks/usePaginatedTable'
 import { useInventory } from '@/hooks/useInventory'
-import { getCurrentUser } from '@/services/profileService'
-import { supabase } from '@/services/supabaseClient'
 import { Transfer } from '@/types/inventory'
 
 export default function InternalTransfers() {
-  const { products, warehouses, submitTransfer, loading: inventoryLoading } = useInventory()
-  const [transfers, setTransfers] = useState<Transfer[]>([])
-  const [loadingTransfers, setLoadingTransfers] = useState(false)
-  const [fetchError, setFetchError] = useState<string | null>(null)
+  const { products, warehouses, submitTransfer, loading: inventoryLoading } = useInventory({ includeLedger: false, includeWarehouses: true, productPageSize: 100, warehousePageSize: 50 })
+  const { items: transfers, loading: loadingTransfers, error: fetchError, refresh: fetchTransfers } = usePaginatedTable<Transfer>('transfers')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -42,30 +39,6 @@ export default function InternalTransfers() {
     reference: '',
     note: '',
   })
-
-  const fetchTransfers = async () => {
-    setLoadingTransfers(true)
-    try {
-      const user = await getCurrentUser()
-      const { data, error } = await supabase
-        .from('transfers')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setTransfers(data || [])
-    } catch (err) {
-      console.error('Failed to fetch transfers:', err)
-      setFetchError((err as Error).message)
-    } finally {
-      setLoadingTransfers(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchTransfers()
-  }, [])
 
   const handleSubmitTransfer = async () => {
     if (!formData.productId || !formData.sourceWarehouseId || !formData.destinationWarehouseId || !formData.quantity) {

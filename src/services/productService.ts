@@ -2,14 +2,24 @@ import { supabase } from '@/services/supabaseClient'
 import { getCurrentUser } from '@/services/profileService'
 import { CreateProductInput, Product } from '@/types/inventory'
 
-export async function getProducts(): Promise<Product[]> {
+export interface GetProductsOptions {
+  page?: number
+  pageSize?: number
+}
+
+export async function getProducts(options: GetProductsOptions = {}): Promise<Product[]> {
   const user = await getCurrentUser()
+  const page = options.page ?? 0
+  const pageSize = options.pageSize ?? 50
+  const from = page * pageSize
+  const to = from + pageSize - 1
   
   const { data, error } = await supabase
     .from('products')
     .select('*')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
+    .range(from, to)
 
   if (error) {
     console.error(error)
@@ -17,6 +27,22 @@ export async function getProducts(): Promise<Product[]> {
   }
 
   return (data ?? []) as Product[]
+}
+
+export async function getProductsCount(): Promise<number> {
+  const user = await getCurrentUser()
+
+  const { count, error } = await supabase
+    .from('products')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+
+  if (error) {
+    console.error(error)
+    throw new Error(error.message)
+  }
+
+  return count ?? 0
 }
 
 export async function createProduct(product: CreateProductInput): Promise<Product> {

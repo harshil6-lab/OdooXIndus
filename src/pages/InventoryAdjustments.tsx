@@ -22,16 +22,13 @@ import {
 } from '@/components/ui/Dialog'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { usePaginatedTable } from '@/hooks/usePaginatedTable'
 import { useInventory } from '@/hooks/useInventory'
-import { getCurrentUser } from '@/services/profileService'
-import { supabase } from '@/services/supabaseClient'
 import { Adjustment } from '@/types/inventory'
 
 export default function InventoryAdjustments() {
-  const { products, submitAdjustment, loading: inventoryLoading } = useInventory()
-  const [adjustments, setAdjustments] = useState<Adjustment[]>([])
-  const [loadingAdjustments, setLoadingAdjustments] = useState(false)
-  const [fetchError, setFetchError] = useState<string | null>(null)
+  const { products, submitAdjustment, loading: inventoryLoading } = useInventory({ includeWarehouses: false, includeLedger: false, productPageSize: 100 })
+  const { items: adjustments, loading: loadingAdjustments, error: fetchError, refresh: fetchAdjustments } = usePaginatedTable<Adjustment>('adjustments')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -41,30 +38,6 @@ export default function InventoryAdjustments() {
     reason: '',
     reference: '',
   })
-
-  const fetchAdjustments = async () => {
-    setLoadingAdjustments(true)
-    try {
-      const user = await getCurrentUser()
-      const { data, error } = await supabase
-        .from('adjustments')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setAdjustments(data || [])
-    } catch (err) {
-      console.error('Failed to fetch adjustments:', err)
-      setFetchError((err as Error).message)
-    } finally {
-      setLoadingAdjustments(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchAdjustments()
-  }, [])
 
   const handleSubmitAdjustment = async () => {
     if (!formData.productId || formData.countedStock < 0) {

@@ -13,12 +13,12 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog'
 import { useProducts } from '@/hooks/useProducts'
-import { useInventory } from '@/hooks/useInventory'
+import { useWarehouses } from '@/hooks/useWarehouses'
 import { Product } from '@/types/inventory'
 
 export default function Products() {
-  const { products, loading, error, addProduct, editProduct, removeProduct, fetchProducts } = useProducts()
-  const { warehouses } = useInventory()
+  const { products, loading, error, addProduct, editProduct, removeProduct, fetchProducts, totalCount } = useProducts()
+  const { warehouses } = useWarehouses()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -183,7 +183,7 @@ export default function Products() {
         className="grid grid-cols-3 gap-4"
       >
         {[
-          { label: 'Total Products', value: products.length },
+          { label: 'Total Products', value: totalCount },
           { label: 'In Stock', value: products.filter(p => getProductStatus(p) === 'in-stock').length },
           { label: 'Low Stock', value: products.filter(p => getProductStatus(p) === 'low-stock').length },
         ].map((stat, i) => (
