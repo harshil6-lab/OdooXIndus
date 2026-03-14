@@ -3,6 +3,8 @@ import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, Mail, MapPin, User, Warehouse, Users, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { supabase } from '@/services/supabaseClient'
+import { createUserProfile } from '@/services/profileService'
 
 type SignupForm = {
   name: string
@@ -57,14 +59,38 @@ export default function Signup() {
     setStep((old) => Math.min(old + 1, 3))
   }
 
-  const submit = (event: React.FormEvent) => {
+  const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!stepValid()) return
+    
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
+    try {
+      // Sign up the user with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+      })
+
+      if (authError) throw authError
+      if (!authData.user) throw new Error('No user returned from signup')
+
+      // Create user profile
+      await createUserProfile({
+        id: authData.user.id,
+        email: form.email,
+        full_name: form.name,
+        company_name: form.warehouseName,
+        role: form.role,
+      })
+
+      // Navigate to dashboard
       navigate('/dashboard')
-    }, 1600)
+    } catch (error) {
+      console.error('Signup failed:', error)
+      alert('Signup failed: ' + (error as Error).message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const progress = (step / 3) * 100

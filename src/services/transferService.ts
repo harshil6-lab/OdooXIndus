@@ -1,4 +1,5 @@
 import { supabase } from '@/services/supabaseClient'
+import { getCurrentUser } from '@/services/profileService'
 import { CreateTransferInput, ProductStock, StockLedgerEntry, Transfer } from '@/types/inventory'
 
 interface TransferResult {
@@ -7,12 +8,13 @@ interface TransferResult {
   destinationStockAfter: number
 }
 
-async function getWarehouseStock(productId: string, warehouseId: string): Promise<number> {
+async function getWarehouseStock(productId: string, warehouseId: string, userId: string): Promise<number> {
   const { data, error } = await supabase
     .from('product_stocks')
     .select('stock')
     .eq('product_id', productId)
     .eq('warehouse_id', warehouseId)
+    .eq('user_id', userId)
     .maybeSingle()
 
   if (error) {
@@ -23,10 +25,10 @@ async function getWarehouseStock(productId: string, warehouseId: string): Promis
   return Number(data?.stock ?? 0)
 }
 
-async function upsertWarehouseStock(stock: ProductStock): Promise<void> {
+async function upsertWarehouseStock(stock: ProductStock, userId: string): Promise<void> {
   const { error } = await supabase
     .from('product_stocks')
-    .upsert(stock, { onConflict: 'product_id,warehouse_id' })
+    .upsert({ ...stock, user_id: userId }, { onConflict: 'product_id,warehouse_id' })
 
   if (error) {
     console.error(error)
@@ -43,13 +45,15 @@ export async function createTransfer(input: CreateTransferInput): Promise<Transf
     throw new Error('Source and destination warehouses must be different.')
   }
 
-  const sourceStock = await getWarehouseStock(input.productId, input.sourceWarehouseId)
+  const user = await getCurrentUser()
+
+  const sourceStock = await getWarehouseStock(input.productId, input.sourceWarehouseId, user.id)
 
   if (sourceStock < input.quantity) {
     throw new Error('Insufficient stock in source warehouse.')
   }
 
-  const destinationStock = await getWarehouseStock(input.productId, input.destinationWarehouseId)
+  const destinationStock = await getWarehouseStock(input.productId, input.destinationWarehouseId, user.id)
   const sourceStockAfter = sourceStock - input.quantity
   const destinationStockAfter = destinationStock + input.quantity
 
@@ -57,26 +61,27 @@ export async function createTransfer(input: CreateTransferInput): Promise<Transf
     product_id: input.productId,
     warehouse_id: input.sourceWarehouseId,
     stock: sourceStockAfter,
-  })
+  }, user.id)
 
   try {
     await upsertWarehouseStock({
       product_id: input.productId,
       warehouse_id: input.destinationWarehouseId,
       stock: destinationStockAfter,
-    })
+    }, user.id)
   } catch (destinationError) {
     await upsertWarehouseStock({
       product_id: input.productId,
       warehouse_id: input.sourceWarehouseId,
       stock: sourceStock,
-    })
+    }, user.id)
     throw destinationError
   }
 
   const { data: transferData, error: transferError } = await supabase
     .from('transfers')
     .insert({
+      user_id: user.id,
       product_id: input.productId,
       source_warehouse_id: input.sourceWarehouseId,
       destination_warehouse_id: input.destinationWarehouseId,
@@ -93,17 +98,18 @@ export async function createTransfer(input: CreateTransferInput): Promise<Transf
       product_id: input.productId,
       warehouse_id: input.sourceWarehouseId,
       stock: sourceStock,
-    })
+    }, user.id)
     await upsertWarehouseStock({
       product_id: input.productId,
       warehouse_id: input.destinationWarehouseId,
       stock: destinationStock,
-    })
+    }, user.id)
     throw new Error(transferError.message)
   }
 
   const transferLedgerRows: StockLedgerEntry[] = [
     {
+      user_id: user.id,
       product_id: input.productId,
       warehouse_id: input.sourceWarehouseId,
       operation_type: 'transfer',
@@ -114,6 +120,7 @@ export async function createTransfer(input: CreateTransferInput): Promise<Transf
       note: input.note ?? null,
     },
     {
+      user_id: user.id,
       product_id: input.productId,
       warehouse_id: input.destinationWarehouseId,
       operation_type: 'transfer',

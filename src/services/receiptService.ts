@@ -1,4 +1,5 @@
 import { supabase } from '@/services/supabaseClient'
+import { getCurrentUser } from '@/services/profileService'
 import { CreateReceiptInput, Receipt, StockLedgerEntry } from '@/types/inventory'
 
 interface ReceiptResult {
@@ -11,10 +12,13 @@ export async function createReceipt(input: CreateReceiptInput): Promise<ReceiptR
     throw new Error('Receipt quantity must be greater than zero.')
   }
 
+  const user = await getCurrentUser()
+
   const { data: productRow, error: productError } = await supabase
     .from('products')
     .select('id, stock')
     .eq('id', input.productId)
+    .eq('user_id', user.id)
     .single()
 
   if (productError) {
@@ -29,6 +33,7 @@ export async function createReceipt(input: CreateReceiptInput): Promise<ReceiptR
     .from('products')
     .update({ stock: updatedStock })
     .eq('id', input.productId)
+    .eq('user_id', user.id)
 
   if (stockUpdateError) {
     console.error(stockUpdateError)
@@ -38,6 +43,7 @@ export async function createReceipt(input: CreateReceiptInput): Promise<ReceiptR
   const { data: receiptData, error: receiptError } = await supabase
     .from('receipts')
     .insert({
+      user_id: user.id,
       product_id: input.productId,
       warehouse_id: input.warehouseId ?? null,
       quantity: input.quantity,
@@ -54,11 +60,13 @@ export async function createReceipt(input: CreateReceiptInput): Promise<ReceiptR
       .from('products')
       .update({ stock: currentStock })
       .eq('id', input.productId)
+      .eq('user_id', user.id)
 
     throw new Error(receiptError.message)
   }
 
   const ledgerPayload: StockLedgerEntry = {
+    user_id: user.id,
     product_id: input.productId,
     warehouse_id: input.warehouseId ?? null,
     operation_type: 'receipt',

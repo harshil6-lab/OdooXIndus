@@ -23,6 +23,7 @@ import {
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { useInventory } from '@/hooks/useInventory'
+import { getCurrentUser } from '@/services/profileService'
 import { supabase } from '@/services/supabaseClient'
 import { Transfer } from '@/types/inventory'
 
@@ -44,9 +45,11 @@ export default function InternalTransfers() {
   const fetchTransfers = async () => {
     setLoadingTransfers(true)
     try {
+      const user = await getCurrentUser()
       const { data, error } = await supabase
         .from('transfers')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error

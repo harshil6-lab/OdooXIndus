@@ -2,6 +2,7 @@ export type InventoryOperationType = 'receipt' | 'delivery' | 'transfer' | 'adju
 
 export interface Product {
   id: string
+  user_id: string
   name: string
   sku: string
   category: string | null
@@ -15,6 +16,7 @@ export interface Product {
 
 export interface Warehouse {
   id: string
+  user_id: string
   name: string
   code: string
   location: string | null
@@ -26,6 +28,7 @@ export interface Warehouse {
 
 export interface Receipt {
   id: string
+  user_id: string
   product_id: string
   warehouse_id: string | null
   quantity: number
@@ -37,6 +40,7 @@ export interface Receipt {
 
 export interface Delivery {
   id: string
+  user_id: string
   product_id: string
   warehouse_id: string | null
   quantity: number
@@ -48,6 +52,7 @@ export interface Delivery {
 
 export interface Transfer {
   id: string
+  user_id: string
   product_id: string
   source_warehouse_id: string
   destination_warehouse_id: string
@@ -59,6 +64,7 @@ export interface Transfer {
 
 export interface Adjustment {
   id: string
+  user_id: string
   product_id: string
   warehouse_id: string | null
   previous_stock: number
@@ -71,6 +77,7 @@ export interface Adjustment {
 
 export interface StockLedgerEntry {
   id?: string
+  user_id: string
   product_id: string
   warehouse_id: string | null
   operation_type: InventoryOperationType
@@ -143,4 +150,39 @@ export interface ServiceError {
 export interface ServiceResponse<T> {
   data: T | null
   error: ServiceError | null
+}
+
+// User Profile Types
+export interface UserProfile {
+  id: string
+  email: string
+  full_name: string | null
+  company_name: string | null
+  role: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface CreateProfileInput {
+  id: string
+  email: string
+  full_name?: string | null
+  company_name?: string | null
+  role?: string | null
+}
+
+export interface UpdateProfileInput {
+  full_name?: string | null
+  company_name?: string | null
+  role?: string | null
+}
+
+export interface UserAccount {
+  user: {
+    id: string
+    email: string
+  } | null
+  profile: UserProfile | null
+  loading: boolean
+  error: string | null
 }

@@ -1,4 +1,5 @@
 import { supabase } from '@/services/supabaseClient'
+import { getCurrentUser } from '@/services/profileService'
 import { CreateDeliveryInput, Delivery, StockLedgerEntry } from '@/types/inventory'
 
 interface DeliveryResult {
@@ -11,10 +12,13 @@ export async function createDelivery(input: CreateDeliveryInput): Promise<Delive
     throw new Error('Delivery quantity must be greater than zero.')
   }
 
+  const user = await getCurrentUser()
+
   const { data: productRow, error: productError } = await supabase
     .from('products')
     .select('id, stock')
     .eq('id', input.productId)
+    .eq('user_id', user.id)
     .single()
 
   if (productError) {
@@ -34,6 +38,7 @@ export async function createDelivery(input: CreateDeliveryInput): Promise<Delive
     .from('products')
     .update({ stock: updatedStock })
     .eq('id', input.productId)
+    .eq('user_id', user.id)
 
   if (stockUpdateError) {
     console.error(stockUpdateError)
@@ -43,6 +48,7 @@ export async function createDelivery(input: CreateDeliveryInput): Promise<Delive
   const { data: deliveryData, error: deliveryError } = await supabase
     .from('deliveries')
     .insert({
+      user_id: user.id,
       product_id: input.productId,
       warehouse_id: input.warehouseId ?? null,
       quantity: input.quantity,
@@ -59,11 +65,13 @@ export async function createDelivery(input: CreateDeliveryInput): Promise<Delive
       .from('products')
       .update({ stock: currentStock })
       .eq('id', input.productId)
+      .eq('user_id', user.id)
 
     throw new Error(deliveryError.message)
   }
 
   const ledgerPayload: StockLedgerEntry = {
+    user_id: user.id,
     product_id: input.productId,
     warehouse_id: input.warehouseId ?? null,
     operation_type: 'delivery',

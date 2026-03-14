@@ -8,6 +8,7 @@ import {
   LogOut,
   Settings,
   HelpCircle,
+  User,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -20,10 +21,12 @@ import {
 } from '@/components/ui/DropdownMenu'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useAppStore } from '@/stores/appStore'
+import { useAuthUser } from '@/hooks/useAuthUser'
 
 export function Navbar() {
   const { theme, setTheme } = useTheme()
   const { setCommandPaletteOpen, setSearchOpen } = useAppStore()
+  const { profile, loading: profileLoading } = useAuthUser()
   const [notificationsOpen, setNotificationsOpen] = useState(false)
 
   const notifications = [
@@ -151,10 +154,27 @@ export function Navbar() {
             <DropdownMenuTrigger asChild>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button variant="ghost" size="icon" className="hover:bg-slate-800 transition-colors">
-                  <motion.div
-                    className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 via-blue-500 to-purple-600 border border-white/20"
-                    whileHover={{ scale: 1.1 }}
-                  />
+                  {profileLoading ? (
+                    <motion.div
+                      className="h-8 w-8 rounded-full bg-slate-700"
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                  ) : profile?.full_name ? (
+                    <motion.div
+                      className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 via-blue-500 to-purple-600 border border-white/20 flex items-center justify-center text-white font-semibold text-sm"
+                      whileHover={{ scale: 1.1 }}
+                    >
+                      {profile.full_name.charAt(0).toUpperCase()}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 via-blue-500 to-purple-600 border border-white/20 flex items-center justify-center"
+                      whileHover={{ scale: 1.1 }}
+                    >
+                      <User className="h-4 w-4 text-white" />
+                    </motion.div>
+                  )}
                 </Button>
               </motion.div>
             </DropdownMenuTrigger>
@@ -164,8 +184,11 @@ export function Navbar() {
                 animate={{ opacity: 1, y: 0 }}
                 className="border-b border-slate-700 px-4 py-3"
               >
-                <div className="text-sm font-medium">John Doe</div>
-                <div className="text-xs text-muted-foreground">Admin User</div>
+                <div className="text-sm font-medium">{profile?.full_name || 'User'}</div>
+                <div className="text-xs text-muted-foreground">{profile?.email || 'Loading...'}</div>
+                {profile?.company_name && (
+                  <div className="text-xs text-muted-foreground/80 mt-1">{profile.company_name}</div>
+                )}
               </motion.div>
               <DropdownMenuSeparator className="bg-slate-700" />
               <DropdownMenuItem className="cursor-pointer gap-2 hover:bg-slate-800">

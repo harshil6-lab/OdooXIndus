@@ -3,6 +3,7 @@ import { createAdjustment } from '@/services/adjustmentService'
 import { createDelivery } from '@/services/deliveryService'
 import { getProducts } from '@/services/productService'
 import { createReceipt } from '@/services/receiptService'
+import { getCurrentUser } from '@/services/profileService'
 import { supabase } from '@/services/supabaseClient'
 import { createTransfer } from '@/services/transferService'
 import {
@@ -40,10 +41,12 @@ export function useInventory(): UseInventoryResult {
     setError(null)
 
     try {
+      const user = await getCurrentUser()
+
       const [productsData, warehousesResult, ledgerResult] = await Promise.all([
         getProducts(),
-        supabase.from('warehouses').select('*').order('created_at', { ascending: false }),
-        supabase.from('stock_ledger').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('warehouses').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('stock_ledger').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100),
       ])
 
       if (warehousesResult.error) {
