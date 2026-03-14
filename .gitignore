@@ -24,6 +24,9 @@ vite.config.d.ts
 .env.*
 !.env.example
 
+# Supabase local state
+.supabase/
+
 # Logs and runtime files
 *.log
 npm-debug.log*
