@@ -1,12 +1,24 @@
 import { supabase } from '@/services/supabaseClient'
 import { getCurrentUser } from '@/services/profileService'
-import { CreateProductInput, Product } from '@/types/inventory'
+import { Warehouse } from '@/types/inventory'
 
-export async function getProducts(): Promise<Product[]> {
+export interface CreateWarehouseInput {
+  name: string
+  location?: string | null
+  capacity?: number | null
+}
+
+export interface UpdateWarehouseInput {
+  name?: string
+  location?: string | null
+  capacity?: number | null
+}
+
+export async function getWarehouses(): Promise<Warehouse[]> {
   const user = await getCurrentUser()
   
   const { data, error } = await supabase
-    .from('products')
+    .from('warehouses')
     .select('*')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -16,25 +28,21 @@ export async function getProducts(): Promise<Product[]> {
     throw new Error(error.message)
   }
 
-  return (data ?? []) as Product[]
+  return (data ?? []) as Warehouse[]
 }
 
-export async function createProduct(product: CreateProductInput): Promise<Product> {
+export async function createWarehouse(input: CreateWarehouseInput): Promise<Warehouse> {
   const user = await getCurrentUser()
   
   const payload = {
     user_id: user.id,
-    name: product.name,
-    sku: product.sku,
-    category: product.category ?? null,
-    stock: product.stock ?? 0,
-    reorder_level: product.reorder_level ?? 0,
-    price: product.price ?? 0,
-    warehouse_id: product.warehouse_id ?? null,
+    name: input.name,
+    location: input.location ?? null,
+    capacity: input.capacity ?? null,
   }
 
   const { data, error } = await supabase
-    .from('products')
+    .from('warehouses')
     .insert(payload)
     .select('*')
     .single()
@@ -44,28 +52,18 @@ export async function createProduct(product: CreateProductInput): Promise<Produc
     throw new Error(error.message)
   }
 
-  return data as Product
+  return data as Warehouse
 }
 
-export interface UpdateProductInput {
-  name?: string
-  sku?: string
-  category?: string | null
-  stock?: number
-  reorder_level?: number
-  price?: number
-  warehouse_id?: string | null
-}
-
-export async function updateProduct(
+export async function updateWarehouse(
   id: string,
-  product: UpdateProductInput
-): Promise<Product> {
+  input: UpdateWarehouseInput
+): Promise<Warehouse> {
   const user = await getCurrentUser()
 
   const { data, error } = await supabase
-    .from('products')
-    .update(product)
+    .from('warehouses')
+    .update(input)
     .eq('id', id)
     .eq('user_id', user.id)
     .select('*')
@@ -76,14 +74,14 @@ export async function updateProduct(
     throw new Error(error.message)
   }
 
-  return data as Product
+  return data as Warehouse
 }
 
-export async function deleteProduct(id: string): Promise<void> {
+export async function deleteWarehouse(id: string): Promise<void> {
   const user = await getCurrentUser()
 
   const { error } = await supabase
-    .from('products')
+    .from('warehouses')
     .delete()
     .eq('id', id)
     .eq('user_id', user.id)

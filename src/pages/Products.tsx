@@ -16,7 +16,7 @@ import { useProducts } from '@/hooks/useProducts'
 import { Product } from '@/types/inventory'
 
 export default function Products() {
-  const { products, loading, error, addProduct, fetchProducts } = useProducts()
+  const { products, loading, error, addProduct, editProduct, removeProduct, fetchProducts } = useProducts()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -88,14 +88,24 @@ export default function Products() {
   }
 
   const handleSaveProduct = async () => {
-    if (!formData.name || !formData.sku || !formData.category) return
+    if (!formData.name || !formData.sku || !formData.category) {
+      alert('Please fill in all required fields')
+      return
+    }
 
-    if (editingProduct) {
-      // TODO: Implement update product service
-      alert('Update functionality coming soon')
-      setIsEditOpen(false)
-    } else {
-      try {
+    try {
+      if (editingProduct) {
+        await editProduct(editingProduct.id, {
+          name: formData.name,
+          sku: formData.sku,
+          category: formData.category,
+          stock: formData.stock,
+          warehouse_id: formData.warehouse_id || null,
+          reorder_level: formData.reorderLevel,
+          price: formData.price,
+        })
+        setIsEditOpen(false)
+      } else {
         await addProduct({
           name: formData.name,
           sku: formData.sku,
@@ -106,17 +116,24 @@ export default function Products() {
           price: formData.price,
         })
         setIsAddOpen(false)
-        fetchProducts()
-      } catch (err) {
-        alert('Failed to add product: ' + (err as Error).message)
       }
+      setEditingProduct(null)
+    } catch (err) {
+      alert('Failed to save product: ' + (err as Error).message)
     }
-    setEditingProduct(null)
   }
 
-  const handleDeleteProduct = (id: string) => {
-    // TODO: Implement delete product service
-    alert('Delete functionality coming soon')
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this product?')) return
+
+    try {
+      const success = await removeProduct(id)
+      if (!success) {
+        alert('Failed to delete product')
+      }
+    } catch (err) {
+      alert('Failed to delete product: ' + (err as Error).message)
+    }
   }
 
   // Loading state

@@ -24,6 +24,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog'
+import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
 import { useInventory } from '@/hooks/useInventory'
 import { Product } from '@/types/inventory'
 
@@ -121,14 +131,129 @@ const KPICard = ({
 )
 
 export default function Dashboard() {
-  const { products, warehouses, ledger, loading, error, refreshInventory } = useInventory()
+  const { products, warehouses, ledger, loading, error, refreshInventory, submitReceipt, submitTransfer } = useInventory()
   const [toast, setToast] = useState<string | null>(null)
+  
+  // Dialog states
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false)
+  const [isCreateReceiptOpen, setIsCreateReceiptOpen] = useState(false)
+  const [isTransferStockOpen, setIsTransferStockOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  
+  // Form states
+  const [productForm, setProductForm] = useState({
+    name: '',
+    sku: '',
+    category: '',
+    price: 0,
+    reorder_level: 0,
+  })
+  
+  const [receiptForm, setReceiptForm] = useState({
+    productId: '',
+    warehouseId: '',
+    quantity: 0,
+    supplier: '',
+    reference: '',
+  })
+  
+  const [transferForm, setTransferForm] = useState({
+    productId: '',
+    sourceWarehouseId: '',
+    destinationWarehouseId: '',
+    quantity: 0,
+    reference: '',
+  })
 
   useEffect(() => {
     if (!toast) return
     const timer = setTimeout(() => setToast(null), 2200)
     return () => clearTimeout(timer)
   }, [toast])
+
+  const handleAddProduct = async () => {
+    if (!productForm.name || !productForm.sku || !productForm.category) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const { createProduct } = await import('@/services/productService')
+      await createProduct({
+        name: productForm.name,
+        sku: productForm.sku,
+        category: productForm.category,
+        price: productForm.price,
+        reorder_level: productForm.reorder_level,
+        stock: 0,
+        warehouse_id: null,
+      })
+      
+      setIsAddProductOpen(false)
+      setProductForm({ name: '', sku: '', category: '', price: 0, reorder_level: 0 })
+      await refreshInventory()
+      setToast('Product added successfully!')
+    } catch (err) {
+      alert('Failed to add product: ' + (err as Error).message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleCreateReceipt = async () => {
+    if (!receiptForm.productId || !receiptForm.quantity) {
+      alert('Please fill in required fields')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await submitReceipt({
+        productId: receiptForm.productId,
+        warehouseId: receiptForm.warehouseId || null,
+        quantity: receiptForm.quantity,
+        supplier: receiptForm.supplier || null,
+        reference: receiptForm.reference || null,
+        note: null,
+      })
+      
+      setIsCreateReceiptOpen(false)
+      setReceiptForm({ productId: '', warehouseId: '', quantity: 0, supplier: '', reference: '' })
+      setToast('Receipt created successfully!')
+    } catch (err) {
+      alert('Failed to create receipt: ' + (err as Error).message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleTransferStock = async () => {
+    if (!transferForm.productId || !transferForm.sourceWarehouseId || !transferForm.destinationWarehouseId || !transferForm.quantity) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await submitTransfer({
+        productId: transferForm.productId,
+        sourceWarehouseId: transferForm.sourceWarehouseId,
+        destinationWarehouseId: transferForm.destinationWarehouseId,
+        quantity: transferForm.quantity,
+        reference: transferForm.reference || null,
+        note: null,
+      })
+      
+      setIsTransferStockOpen(false)
+      setTransferForm({ productId: '', sourceWarehouseId: '', destinationWarehouseId: '', quantity: 0, reference: '' })
+      setToast('Stock transferred successfully!')
+    } catch (err) {
+      alert('Failed to transfer stock: ' + (err as Error).message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const getProductStatus = (product: Product) => {
     if (product.stock === 0) return 'out-of-stock'
@@ -226,7 +351,7 @@ export default function Dashboard() {
           <div className="flex flex-wrap gap-2">
             <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
               <Button
-                onClick={() => setToast('Opening Add Product...')}
+                onClick={() => setIsAddProductOpen(true)}
                 className="group gap-2 bg-blue-600 hover:bg-blue-500"
               >
                 <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
@@ -236,7 +361,7 @@ export default function Dashboard() {
             <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
               <Button
                 variant="outline"
-                onClick={() => setToast('Opening Create Receipt...')}
+                onClick={() => setIsCreateReceiptOpen(true)}
                 className="group gap-2 border-slate-700 bg-slate-900/70 hover:bg-slate-800"
               >
                 <FilePlus2 className="h-4 w-4 transition-transform group-hover:scale-110" />
@@ -246,7 +371,7 @@ export default function Dashboard() {
             <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
               <Button
                 variant="outline"
-                onClick={() => setToast('Opening Transfer Stock...')}
+                onClick={() => setIsTransferStockOpen(true)}
                 className="group gap-2 border-slate-700 bg-slate-900/70 hover:bg-slate-800"
               >
                 <ArrowRightLeft className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -429,6 +554,244 @@ export default function Dashboard() {
           </Card>
         </motion.div>
       </div>
+
+      {/* Add Product Dialog */}
+      <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Product</DialogTitle>
+            <DialogDescription>Create a new product in inventory</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Product Name *</label>
+              <Input
+                value={productForm.name}
+                onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                placeholder="Enter product name"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">SKU *</label>
+              <Input
+                value={productForm.sku}
+                onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
+                placeholder="Enter SKU"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Category *</label>
+              <Input
+                value={productForm.category}
+                onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+                placeholder="Enter category"
+                className="mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Price</label>
+                <Input
+                  type="number"
+                  value={productForm.price}
+                  onChange={(e) => setProductForm({ ...productForm, price: parseFloat(e.target.value) || 0 })}
+                  className="mt-1"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Reorder Level</label>
+                <Input
+                  type="number"
+                  value={productForm.reorder_level}
+                  onChange={(e) => setProductForm({ ...productForm, reorder_level: parseInt(e.target.value) || 0 })}
+                  className="mt-1"
+                  min="0"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddProductOpen(false)} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddProduct} disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                'Add Product'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Receipt Dialog */}
+      <Dialog open={isCreateReceiptOpen} onOpenChange={setIsCreateReceiptOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Receipt</DialogTitle>
+            <DialogDescription>Record incoming inventory</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Product *</label>
+              <Select
+                value={receiptForm.productId}
+                onChange={(e) => setReceiptForm({ ...receiptForm, productId: e.target.value })}
+                className="mt-1"
+              >
+                <option value="">Select product</option>
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name} ({product.sku})
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Quantity *</label>
+              <Input
+                type="number"
+                value={receiptForm.quantity}
+                onChange={(e) => setReceiptForm({ ...receiptForm, quantity: parseInt(e.target.value) || 0 })}
+                className="mt-1"
+                min="1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Supplier</label>
+              <Input
+                value={receiptForm.supplier}
+                onChange={(e) => setReceiptForm({ ...receiptForm, supplier: e.target.value })}
+                placeholder="Supplier name"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Reference</label>
+              <Input
+                value={receiptForm.reference}
+                onChange={(e) => setReceiptForm({ ...receiptForm, reference: e.target.value })}
+                placeholder="Reference number"
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateReceiptOpen(false)} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateReceipt} disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Receipt'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Stock Dialog */}
+      <Dialog open={isTransferStockOpen} onOpenChange={setIsTransferStockOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transfer Stock</DialogTitle>
+            <DialogDescription>Move inventory between warehouses</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Product *</label>
+              <Select
+                value={transferForm.productId}
+                onChange={(e) => setTransferForm({ ...transferForm, productId: e.target.value })}
+                className="mt-1"
+              >
+                <option value="">Select product</option>
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name} ({product.sku})
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Source Warehouse *</label>
+              <Select
+                value={transferForm.sourceWarehouseId}
+                onChange={(e) => setTransferForm({ ...transferForm, sourceWarehouseId: e.target.value })}
+                className="mt-1"
+              >
+                <option value="">Select source warehouse</option>
+                {warehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Destination Warehouse *</label>
+              <Select
+                value={transferForm.destinationWarehouseId}
+                onChange={(e) => setTransferForm({ ...transferForm, destinationWarehouseId: e.target.value })}
+                className="mt-1"
+              >
+                <option value="">Select destination warehouse</option>
+                {warehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Quantity *</label>
+              <Input
+                type="number"
+                value={transferForm.quantity}
+                onChange={(e) => setTransferForm({ ...transferForm, quantity: parseInt(e.target.value) || 0 })}
+                className="mt-1"
+                min="1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Reference</label>
+              <Input
+                value={transferForm.reference}
+                onChange={(e) => setTransferForm({ ...transferForm, reference: e.target.value })}
+                placeholder="Reference number"
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsTransferStockOpen(false)} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleTransferStock} disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Transferring...
+                </>
+              ) : (
+                'Transfer Stock'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

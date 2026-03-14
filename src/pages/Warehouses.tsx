@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Edit, Trash2, TrendingUp } from 'lucide-react'
+import { Plus, Edit, Trash2, MapPin, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -12,15 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog'
-import { useInventoryStore, Warehouse } from '@/stores/inventoryStore'
+import { useWarehouses } from '@/hooks/useWarehouses'
+import { Warehouse } from '@/types/inventory'
 
 export default function Warehouses() {
-  const { warehouses, addWarehouse, updateWarehouse, deleteWarehouse } = useInventoryStore()
+  const { warehouses, loading, error, addWarehouse, editWarehouse, removeWarehouse } = useWarehouses()
   const [isOpen, setIsOpen] = useState(false)
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
-    code: '',
     location: '',
     capacity: 0,
   })
@@ -30,15 +31,13 @@ export default function Warehouses() {
       setEditingWarehouse(warehouse)
       setFormData({
         name: warehouse.name,
-        code: warehouse.code,
-        location: warehouse.location,
-        capacity: warehouse.capacity,
+        location: warehouse.location || '',
+        capacity: warehouse.capacity || 0,
       })
     } else {
       setEditingWarehouse(null)
       setFormData({
         name: '',
-        code: '',
         location: '',
         capacity: 0,
       })
@@ -46,33 +45,66 @@ export default function Warehouses() {
     setIsOpen(true)
   }
 
-  const handleSave = () => {
-    if (editingWarehouse) {
-      updateWarehouse(editingWarehouse.id, formData)
-    } else {
-      addWarehouse({
-        id: Date.now().toString(),
-        ...formData,
-        currentUsage: 0,
-      })
+  const handleSave = async () => {
+    if (!formData.name) {
+      alert('Please enter warehouse name')
+      return
     }
-    setIsOpen(false)
+
+    setSubmitting(true)
+    try {
+      if (editingWarehouse) {
+        await editWarehouse(editingWarehouse.id, {
+          name: formData.name,
+          location: formData.location || null,
+          capacity: formData.capacity || null,
+        })
+      } else {
+        await addWarehouse({
+          name: formData.name,
+          location: formData.location || null,
+          capacity: formData.capacity || null,
+        })
+      }
+      setIsOpen(false)
+      setEditingWarehouse(null)
+      setFormData({ name: '', location: '', capacity: 0 })
+    } catch (err) {
+      alert('Failed to save warehouse: ' + (err as Error).message)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const getUsageWidthClass = (usage: number, capacity: number) => {
-    const percentage = capacity > 0 ? (usage / capacity) * 100 : 0
-    if (percentage >= 100) return 'w-full'
-    if (percentage >= 90) return 'w-11/12'
-    if (percentage >= 80) return 'w-10/12'
-    if (percentage >= 70) return 'w-9/12'
-    if (percentage >= 60) return 'w-8/12'
-    if (percentage >= 50) return 'w-6/12'
-    if (percentage >= 40) return 'w-5/12'
-    if (percentage >= 30) return 'w-4/12'
-    if (percentage >= 20) return 'w-3/12'
-    if (percentage >= 10) return 'w-2/12'
-    if (percentage > 0) return 'w-1/12'
-    return 'w-0'
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this warehouse?')) {
+      return
+    }
+
+    try {
+      const success = await removeWarehouse(id)
+      if (!success) {
+        alert('Failed to delete warehouse')
+      }
+    } catch (err) {
+      alert('Failed to delete warehouse: ' + (err as Error).message)
+    }
+  }
+
+  if (loading && warehouses.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <p className="text-destructive">Error loading warehouses: {error}</p>
+      </div>
+    )
   }
 
   return (
@@ -88,79 +120,100 @@ export default function Warehouses() {
         </div>
       </motion.div>
 
-      <Button onClick={() => handleOpen()} className="gap-2">
-        <Plus className="h-4 w-4" />
-        Add Warehouse
-      </Button>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <Button onClick={() => handleOpen()} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Add Warehouse
+        </Button>
+      </motion.div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {warehouses.map((warehouse, idx) => (
-          <motion.div
-            key={warehouse.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-          >
-            <Card>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle>{warehouse.name}</CardTitle>
-                    <CardDescription>{warehouse.location}</CardDescription>
+      {warehouses.length === 0 ? (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card>
+            <CardContent className="py-12">
+              <div className="text-center text-muted-foreground">
+                <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium">No warehouses yet</p>
+                <p className="text-sm mt-2">Create your first warehouse to get started</p>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {warehouses.map((warehouse, idx) => (
+            <motion.div
+              key={warehouse.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.05 }}
+            >
+              <Card className="hover:border-primary/50 transition-colors">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-xl">{warehouse.name}</CardTitle>
+                      {warehouse.location && (
+                        <CardDescription className="flex items-center gap-1 mt-2">
+                          <MapPin className="h-3 w-3" />
+                          {warehouse.location}
+                        </CardDescription>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpen(warehouse)}
+                        title="Edit warehouse"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(warehouse.id)}
+                        title="Delete warehouse"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleOpen(warehouse)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteWarehouse(warehouse.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {warehouse.capacity && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Capacity:</span>{' '}
+                        <span className="font-medium">{warehouse.capacity} units</span>
+                      </div>
+                    )}
+                    {warehouse.created_at && (
+                      <div className="text-xs text-muted-foreground">
+                        Added {new Date(warehouse.created_at).toLocaleDateString()}
+                      </div>
+                    )}
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="text-sm text-muted-foreground mb-1">Code: {warehouse.code}</div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                    <span className="font-medium">{warehouse.currentUsage} / {warehouse.capacity} units</span>
-                  </div>
-                </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div
-                    className={`bg-primary h-2 rounded-full transition-all ${getUsageWidthClass(warehouse.currentUsage, warehouse.capacity)}`}
-                  />
-                </div>
-
-                <div className="text-xs text-muted-foreground">
-                  {Math.round((warehouse.currentUsage / warehouse.capacity) * 100)}% capacity used
-                </div>
-
-                {warehouse.temperature && (
-                  <div className="flex justify-between text-xs">
-                    <span>Temperature: {warehouse.temperature}</span>
-                    <span>Humidity: {warehouse.humidity}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
-
+      {/* Add/Edit Warehouse Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingWarehouse ? 'Edit Warehouse' : 'Add Warehouse'}</DialogTitle>
+            <DialogTitle>{editingWarehouse ? 'Edit Warehouse' : 'Add New Warehouse'}</DialogTitle>
             <DialogDescription>
               {editingWarehouse ? 'Update warehouse information' : 'Create a new warehouse location'}
             </DialogDescription>
@@ -168,21 +221,11 @@ export default function Warehouses() {
 
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Warehouse Name</label>
+              <label className="text-sm font-medium">Warehouse Name *</label>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter name"
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Code</label>
-              <Input
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                placeholder="WH-001"
+                placeholder="e.g., Main Warehouse"
                 className="mt-1"
               />
             </div>
@@ -192,7 +235,7 @@ export default function Warehouses() {
               <Input
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                placeholder="City/Address"
+                placeholder="e.g., 123 Main St, City, State"
                 className="mt-1"
               />
             </div>
@@ -204,16 +247,32 @@ export default function Warehouses() {
                 value={formData.capacity}
                 onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) || 0 })}
                 className="mt-1"
+                min="0"
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsOpen(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsOpen(false)
+                setEditingWarehouse(null)
+                setFormData({ name: '', location: '', capacity: 0 })
+              }}
+              disabled={submitting}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              {editingWarehouse ? 'Update' : 'Create'}
+            <Button onClick={handleSave} disabled={submitting}>
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                editingWarehouse ? 'Update Warehouse' : 'Add Warehouse'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Eye, Loader2 } from 'lucide-react'
+import { Plus, Eye, Loader2, Download } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import {
@@ -26,6 +26,7 @@ import { useInventory } from '@/hooks/useInventory'
 import { getCurrentUser } from '@/services/profileService'
 import { supabase } from '@/services/supabaseClient'
 import { Receipt } from '@/types/inventory'
+import { generateReceiptPDF } from '@/utils/pdfGenerator'
 
 export default function Receipts() {
   const { products, submitReceipt, loading: inventoryLoading } = useInventory()
@@ -101,6 +102,18 @@ export default function Receipts() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleDownloadPDF = (receipt: Receipt) => {
+    const product = products.find(p => p.id === receipt.product_id)
+    const productName = product ? product.name : 'Unknown Product'
+    
+    generateReceiptPDF({
+      receipt,
+      productName,
+      warehouseName: receipt.warehouse_id || undefined,
+      supplierName: receipt.supplier || undefined,
+    })
   }
 
   const loading = inventoryLoading || loadingReceipts
@@ -187,16 +200,26 @@ export default function Receipts() {
                           {receipt.created_at ? new Date(receipt.created_at).toLocaleDateString() : 'N/A'}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedReceipt(receipt)
-                              setIsViewOpen(true)
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedReceipt(receipt)
+                                setIsViewOpen(true)
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadPDF(receipt)}
+                              title="Download PDF"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </motion.tr>
                     ))
